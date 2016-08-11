@@ -28,42 +28,14 @@
 
 #include "agent_outage_classes.h"
 
-//  Structure of our class
-
-struct _bios_outage_server_t {
-    int filler;     //  Declare class properties here
-};
-
-
 //  --------------------------------------------------------------------------
 //  Create a new bios_outage_server
-
-bios_outage_server_t *
-bios_outage_server_new (void)
-{
-    bios_outage_server_t *self = (bios_outage_server_t *) zmalloc (sizeof (bios_outage_server_t));
-    assert (self);
-    //  Initialize class properties here
-    return self;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Destroy the bios_outage_server
-
 void
-bios_outage_server_destroy (bios_outage_server_t **self_p)
-{
-    assert (self_p);
-    if (*self_p) {
-        bios_outage_server_t *self = *self_p;
-        //  Free class properties here
-        //  Free object itself
-        free (self);
-        *self_p = NULL;
-    }
-}
+bios_outage_server (zsock_t *pipe, void *args){
 
+
+}
+    
 //  --------------------------------------------------------------------------
 //  Self test of this class
 
@@ -74,9 +46,6 @@ bios_outage_server_test (bool verbose)
 
     //  @selftest
     //  Simple create/destroy test
-    bios_outage_server_t *self = bios_outage_server_new ();
-    assert (self);
-    bios_outage_server_destroy (&self);
-    //  @end
+      //  @end
     printf ("OK\n");
 }

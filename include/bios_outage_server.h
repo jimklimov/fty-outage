@@ -27,13 +27,9 @@ extern "C" {
 #endif
 
 //  @interface
-//  Create a new bios_outage_server
-AGENT_OUTAGE_EXPORT bios_outage_server_t *
-    bios_outage_server_new (void);
-
-//  Destroy the bios_outage_server
-AGENT_OUTAGE_EXPORT void
-    bios_outage_server_destroy (bios_outage_server_t **self_p);
+//  BIOS outage server actor
+AGENT_OUTAGE_EXPORT void 
+    bios_outage_server (zsock_t *pipe, void *args);
 
 //  Self test of this class
 AGENT_OUTAGE_EXPORT void
