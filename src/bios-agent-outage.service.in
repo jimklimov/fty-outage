@@ -1,0 +1,11 @@
+[Unit]
+Description=bios-agent-outage service
+After=network.target
+
+[Service]
+Type=simple
+Environment="prefix=@prefix@"
+ExecStart=@prefix@/bin/bios-agent-outage @sysconfdir@/@PACKAGE@/bios-agent-outage.cfg
+
+[Install]
+WantedBy=multi-user.target
