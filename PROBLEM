@@ -1,3 +1,1 @@
-PROBLEM: Pre generated bios-outage-server CLASS does not suit our need for
-actor interface 
-
+PROBLEM: bios-outage-server doesn't do anything at all
