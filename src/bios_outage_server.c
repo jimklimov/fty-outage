@@ -44,17 +44,32 @@ bios_outage_server (zsock_t *pipe, void *args)
     
     zsock_signal (pipe, 0);
 
+    int64_t timeout = 2000;  
+    int64_t timestamp = zclock_mono ();
+     
     while (!zsys_interrupted)
-    {
-        /*        int timeout = 2000;  // server 2 s -> jsem alive
-        int64_t now = zclock_time();
-        */
-        
-        void *which = zpoller_wait (poller, -1);
+    {    
+        void *which = zpoller_wait (poller, timeout);
             
         if (which == NULL) {
-            zsys_debug("which je NULL");
-            break;
+            if (zpoller_terminated(poller) || zsys_interrupted) {
+                zsys_debug ("Poller terminated.");
+                break;
+            }
+            else {
+                zsys_debug ("Poller expired");
+                printf("I am alive\n");
+                continue;
+                }
+            timestamp = zclock_mono();            
+        }
+        
+        int64_t now = zclock_mono();
+        
+        if (now - timestamp  >= timeout){
+            printf(" >>> I am alive. <<<\n");
+            
+            timestamp = zclock_mono ();
         }
         
         if (which == pipe) {
@@ -73,7 +88,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                 zstr_free (&command);
                 break;
             }
-            else if (streq(command, "PRINT")) {      
+            else if (streq(command, "PRINT")) {
                 zstr_free (&command);
                 zmsg_print (msg);
                 zmsg_destroy (&msg);
@@ -119,7 +134,6 @@ bios_outage_server (zsock_t *pipe, void *args)
     mlm_client_destroy (&client);
 }
 
-// 2s jsem zivy ze servru
 
 //  --------------------------------------------------------------------------
 //  Self test of this class
@@ -130,7 +144,6 @@ bios_outage_server_test (bool verbose)
     printf (" * bios_outage_server: ");
 
     //  @selftest
-
     
     zactor_t *server = zactor_new (mlm_server, (void*) "Malamute");
     zstr_sendx (server, "BIND","ipc://malamute-test", NULL);
@@ -158,9 +171,15 @@ bios_outage_server_test (bool verbose)
     char *recvmsg = zmsg_popstr(recv); 
     assert (streq(recvmsg,"world"));
 
-    
+    zclock_sleep(1500);
     zstr_sendx(outsvr,"PRINT","Karol", "Bara", NULL);
+    zclock_sleep(1000);
     zstr_sendx(outsvr,"PRINT","Karol2", "Bara2", NULL);
+    zclock_sleep(1000);
+    zstr_sendx(outsvr,"PRINT","Karol3", "Bara3", NULL);
+    zclock_sleep(1000);
+    zstr_sendx(outsvr,"PRINT","Karol4", "Bara4", NULL);
+    zclock_sleep(6000);
     
     {
     zmsg_t *msg = zmsg_new ();
@@ -179,14 +198,11 @@ bios_outage_server_test (bool verbose)
     zstr_free (&recvmsg);
     zmsg_destroy(&recv);
     }
-
-        
+    
     zstr_free (&recvmsg);
     zmsg_destroy(&recv);
     mlm_client_destroy (&sender);
-    printf ("post mlm_client_t\n");
     zactor_destroy(&outsvr);
-    printf ("post zactor_destroy\n");
     zactor_destroy (&server);
 
     printf ("koncime\n");
