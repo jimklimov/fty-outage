@@ -38,10 +38,57 @@ bios_outage_server (zsock_t *pipe, void *args)
 
     int rv = mlm_client_connect (client, "ipc://malamute-test", 1000, "outage");
     assert (rv >= 0);
+
+    zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (client), NULL);
+    assert(poller);
+    
     zsock_signal (pipe, 0);
 
     while (!zsys_interrupted)
     {
+        /*        int timeout = 2000;  // server 2 s -> jsem alive
+        int64_t now = zclock_time();
+        */
+        
+        void *which = zpoller_wait (poller, -1);
+            
+        if (which == NULL) {
+            zsys_debug("which je NULL");
+            break;
+        }
+        
+        if (which == pipe) {
+            zmsg_t *msg = zmsg_recv(pipe);
+            assert (msg);
+            
+            char *command = zmsg_popstr(msg);
+            if (!command) {
+                zmsg_destroy (&msg);
+                zsys_debug ("Prazdny prikaz.");
+                continue;
+            }
+            
+            if (streq(command, "$TERM")) {
+                zmsg_destroy (&msg);
+                zstr_free (&command);
+                break;
+            }
+            else if (streq(command, "PRINT")) {      
+                zstr_free (&command);
+                zmsg_print (msg);
+                zmsg_destroy (&msg);
+                continue;
+                
+            } else {
+                zsys_debug ("Neznamy prikaz: %s\n", command);
+                zstr_free (&command);
+                zmsg_destroy (&msg);
+                continue;
+                                
+            }
+        }
+        assert (which == mlm_client_msgpipe (client));
+
         zmsg_t *message = mlm_client_recv (client);
         if (!message)
             break;
@@ -49,7 +96,7 @@ bios_outage_server (zsock_t *pipe, void *args)
         char *string = zmsg_popstr(message);
         if (!string)
             continue;
-        
+
         if (streq (string, "hello")) {
             zmsg_t *reply = zmsg_new ();
             assert (reply);
@@ -64,20 +111,15 @@ bios_outage_server (zsock_t *pipe, void *args)
             zmsg_destroy(&reply);
             
         }
-        else if (streq (string, "ukonci-sa")) {
-            zstr_free (&string);
-            zmsg_destroy (&message);
-            break;
-            
-        }
+       
         zstr_free(&string);        
         zmsg_destroy(&message);
     }
-    
+    zpoller_destroy(&poller);
     mlm_client_destroy (&client);
 }
 
-
+// 2s jsem zivy ze servru
 
 //  --------------------------------------------------------------------------
 //  Self test of this class
@@ -116,12 +158,29 @@ bios_outage_server_test (bool verbose)
     char *recvmsg = zmsg_popstr(recv); 
     assert (streq(recvmsg,"world"));
 
-    zmsg_t *sprava = zmsg_new ();
-    assert (sprava);
-    zmsg_addstr (sprava, "ukonci-sa");
-    rv = mlm_client_sendto (sender, "outage", "subject", NULL, 1000, &sprava);
-    assert (rv >= 0);
     
+    zstr_sendx(outsvr,"PRINT","Karol", "Bara", NULL);
+    zstr_sendx(outsvr,"PRINT","Karol2", "Bara2", NULL);
+    
+    {
+    zmsg_t *msg = zmsg_new ();
+    zmsg_addstr (msg, "hello");
+
+    rv = mlm_client_sendto (sender,"outage", "subject", NULL, 1000, &msg);
+    assert (rv >= 0);
+    zclock_sleep (100);
+
+    zmsg_t *recv = mlm_client_recv (sender);
+    assert (recv);
+
+    char *recvmsg = zmsg_popstr(recv); 
+    assert (streq(recvmsg,"world"));
+    
+    zstr_free (&recvmsg);
+    zmsg_destroy(&recv);
+    }
+
+        
     zstr_free (&recvmsg);
     zmsg_destroy(&recv);
     mlm_client_destroy (&sender);
