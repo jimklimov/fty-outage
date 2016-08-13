@@ -84,6 +84,7 @@ bios_outage_server (zsock_t *pipe, void *args)
             }
 
             if (streq(command, "$TERM")) {
+                zsys_info ("Got $TERM");
                 zmsg_destroy (&msg);
                 zstr_free (&command);
                 break;
