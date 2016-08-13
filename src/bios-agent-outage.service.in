@@ -1,11 +1,19 @@
 [Unit]
 Description=bios-agent-outage service
-After=network.target
+After=malamute.service network.target
+Requires=malamute.service network.target
+PartOf=bios.target
 
 [Service]
 Type=simple
+User=bios
+EnvironmentFile=-/usr/share/bios/etc/default/bios
+EnvironmentFile=-/usr/share/bios/etc/default/bios__%n.conf
+EnvironmentFile=-/etc/default/bios
+EnvironmentFile=-/etc/default/bios__%n.conf
 Environment="prefix=@prefix@"
 ExecStart=@prefix@/bin/bios-agent-outage @sysconfdir@/@PACKAGE@/bios-agent-outage.cfg
+Restart=always
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=bios.target
