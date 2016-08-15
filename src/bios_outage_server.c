@@ -91,20 +91,21 @@ bios_outage_server (zsock_t *pipe, void *args)
                 break;
             }
             else if (streq(command, "ENDPOINT")) {
-		char *endpoint = zmsg_popstr (msg);
-		char *name = zmsg_popstr (msg);
-		if (endpoint && name) {
-			int rv = mlm_client_connect (client, endpoint, 1000, name);
-			if (rv >= 0) {
-				printf ("mlm_client_connest OK\n");
-			}
-		}
-		else {
-			printf ("BAD ENDPOINT MESSAGE\n");
+		        char *endpoint = zmsg_popstr (msg);
+		        char *name = zmsg_popstr (msg);
+		        if (endpoint && name) {
+			        int rv = mlm_client_connect (client, endpoint, 1000, name);
+			        if (rv >= 0) {
+				         printf ("mlm_client_connest OK\n");
+			        }
+		        }
+		        else {
+			        printf ("Invalid  ENDPOINT message\n");
 
-		}
-		zstr_free (&endpoint);
-		zstr_free (&name);
+		        }
+		        zstr_free (&endpoint);
+		        zstr_free (&name);
+            
             }    
             else if (streq (command, "CONSUMER")) {
                 char *stream = zmsg_popstr(msg);
@@ -122,13 +123,14 @@ bios_outage_server (zsock_t *pipe, void *args)
                 char *stream = zmsg_popstr(msg);
                 assert(stream);
             }
-	    else {
+	        else {
                 zsys_debug ("Unknown command: %s. Terminating.\n", command);
-	    }
-                zstr_free (&command);
-                zmsg_destroy (&msg);
-                continue;
+	        }
+            zstr_free (&command);
+            zmsg_destroy (&msg);
+            continue;
         }
+        
         assert (which == mlm_client_msgpipe (client));
 
         zmsg_t *message = mlm_client_recv (client);
@@ -242,8 +244,9 @@ bios_outage_server_test (bool verbose)
 
     zstr_free (&recvmsg);
     zmsg_destroy(&recv);
+    zmsg_destroy(&msg);
     }
-
+    
     zstr_free (&recvmsg);
     zmsg_destroy(&recv);
     mlm_client_destroy (&sender);
