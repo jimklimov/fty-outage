@@ -29,6 +29,90 @@
 #include "agent_outage_classes.h"
 
 //  --------------------------------------------------------------------------
+//  Static helper functions
+
+
+// 1 - $TERM
+// 0 - message processed and deleted
+
+
+static int
+s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
+{
+    assert(client);
+    assert(message_p && *message_p);
+
+    zmsg_t *message =  *message_p;
+
+    char *command = zmsg_popstr(message);
+    if (!command) {
+        zmsg_destroy (message_p);
+        zsys_warning ("Empty command.");
+        return 0;
+    }
+    if (streq(command, "$TERM")) {
+         zsys_info ("Got $TERM");
+         zmsg_destroy (message_p);
+         zstr_free (&command);
+         return 1;
+         
+    }
+    else
+    if (streq(command, "ENDPOINT"))
+    {
+	    char *endpoint = zmsg_popstr (message);
+		char *name = zmsg_popstr (message);
+                
+		if (endpoint && name) {
+		    int rv = mlm_client_connect (client, endpoint, 1000, name);
+            if (rv == -1) 
+			    zsys_error("mlm_client_connect failed\n");
+	    }
+               
+		zstr_free (&endpoint);
+		zstr_free (&name);
+            
+    }    
+    else
+    if (streq (command, "CONSUMER"))
+    {
+        char *stream = zmsg_popstr(message);
+        char *regex = zmsg_popstr(message);
+
+        if (stream && regex) {
+            int rv = mlm_client_set_consumer (client, stream, regex);                    
+            if (rv == -1 )
+                zsys_error("mlm_set_consumer failed");
+        }
+        
+        zstr_free (&stream);
+        zstr_free (&regex);                                
+                
+    }
+    else
+    if (streq (command, "PRODUCER"))
+    {
+        char *stream = zmsg_popstr(message);
+                
+        if (stream){
+            int rv = mlm_client_set_producer (client, stream);
+            if (rv == -1 )
+                zsys_error ("mlm_client_set_producer");
+        }
+        zstr_free(&stream);
+    }
+	else {
+        zsys_error ("Unknown actor command: %s.\n", command);
+	}
+            
+    zstr_free (&command);
+    zmsg_destroy (message_p);
+    return 0;
+}
+
+
+
+//  --------------------------------------------------------------------------
 //  Create a new bios_outage_server
 void
 bios_outage_server (zsock_t *pipe, void *args)
@@ -75,73 +159,10 @@ bios_outage_server (zsock_t *pipe, void *args)
             zmsg_t *msg = zmsg_recv(pipe);
             assert (msg);
 
-            char *command = zmsg_popstr(msg);
-            if (!command) {
-                zmsg_destroy (&msg);
-                zsys_debug ("Empty command.");
-                continue;
-            }
-
-            if (streq(command, "$TERM")) {
-                zsys_info ("Got $TERM");
-                zmsg_destroy (&msg);
-                zstr_free (&command);
+            int rv = s_actor_commands (client, &msg);
+            if (rv == 1)
                 break;
-            }
-            else if (streq(command, "ENDPOINT")) {
-		        char *endpoint = zmsg_popstr (msg);
-		        char *name = zmsg_popstr (msg);
-                
-		        if (endpoint && name) {
-			        int rv = mlm_client_connect (client, endpoint, 1000, name);
-                    
-			        if (rv >= 0) 
-				         printf ("mlm_client_connect OK\n");
-		        }
-		        else {
-			        printf ("Invalid  ENDPOINT message\n");
-		        }
-                
-		        zstr_free (&endpoint);
-		        zstr_free (&name);
-            
-            }    
-            else if (streq (command, "CONSUMER")) {
-                char *stream = zmsg_popstr(msg);
-                char *regex = zmsg_popstr(msg);
-                
-                if (stream && regex) {
-                    int rv = mlm_client_set_consumer (client, stream, regex);                    
-                    if (rv >= 0 )
-                        printf("mlm_client_set_consumer OK.\n ");
-                }
-                else
-                   printf("Invalid CONSUMER  message.\n");
-                
-                zstr_free (&stream);
-                zstr_free (&regex);                                
-                
-            }
-            else if (streq (command, "PRODUCER")) {
-                char *stream = zmsg_popstr(msg);
-                
-                if (stream){
-                    int rv = mlm_client_set_producer (client, stream);
-                    if (rv >= 0 )
-                        printf("mlm_client_set_producer OK.\n");                    
-                }
-                else
-                    printf("Invalid PRODUCER message.\n");
-
-                zstr_free(&stream);
-            }
-	        else {
-                zsys_debug ("Unknown actor command: %s.\n", command);
-	        }
-            
-            zstr_free (&command);
-            zmsg_destroy (&msg);
-            continue;
+            continue;    
         }
         
         assert (which == mlm_client_msgpipe (client));
@@ -150,27 +171,18 @@ bios_outage_server (zsock_t *pipe, void *args)
         if (!message)
             break;
 
-        char *string = zmsg_popstr(message);
-        if (!string)
+        if (!is_bios_proto(message)) {
+            zmsg_destroy(&message);
             continue;
-
-        if (streq (string, "hello")) {
-            zmsg_t *reply = zmsg_new ();
-            assert (reply);
-
-            int rv = zmsg_addstr(reply, "world");
-            assert(rv == 0);
-
-            const char *msgsender = mlm_client_sender (client);
-            rv = mlm_client_sendto (client, msgsender, "Subject", NULL, 1000, &reply);
-            assert (rv == 0);
-
-            zmsg_destroy(&reply);
-
         }
+        
+        bios_proto_t *proto = bios_proto_decode (&message);        
+        assert (proto);
+        bios_proto_print (proto);
 
-        zstr_free(&string);
-        zmsg_destroy(&message);
+        
+        bios_proto_destroy (&proto);
+        
     }
     zpoller_destroy(&poller);
     mlm_client_destroy (&client);
@@ -203,53 +215,33 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (outsvr, "ENDPOINT", endpoint, "outsvr", NULL);
     zclock_sleep (1000);
 
-    zstr_sendx (outsvr, "CONSUMER", "ALERTS",".*", NULL);
+    zstr_sendx (outsvr, "CONSUMER", "xyz",".*", NULL);
     zstr_sendx (outsvr, "CONSUMER", "ALERTS", NULL);
 
     zstr_sendx (outsvr, "PRODUCER", "ALERTS", NULL);
     zstr_sendx (outsvr, "PRODUCER", NULL);
-    
+
+
+    // hello-world test
     mlm_client_t *sender = mlm_client_new();
     int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
     assert (rv >= 0);
 
-    // reply on certain message hello --> world
-    zmsg_t *msg = zmsg_new ();
-    zmsg_addstr (msg, "hello");
-
-    printf("\ncekani na zpravu1\n");
-    rv = mlm_client_sendto (sender,"outsvr", "subject", NULL, 1000, &msg);
+    rv = mlm_client_set_producer (sender, "xyz");
     assert (rv >= 0);
-    zclock_sleep (3000);
     
-    zmsg_t *recv = mlm_client_recv (sender);
-    assert (recv);
+    zmsg_t *
+    sendmsg = bios_proto_encode_asset (
+        NULL,
+        "UPS33",
+        "update",
+        NULL);
 
-    char *recvmsg = zmsg_popstr(recv); 
-    assert (streq(recvmsg,"world"));
-    
-    {
-    zmsg_t *msg = zmsg_new ();
-    zmsg_addstr (msg, "hello");
-
-    rv = mlm_client_sendto (sender,"outsvr", "subject", NULL, 1000, &msg);
+    rv = mlm_client_send (sender, "subject",  &sendmsg);
     assert (rv >= 0);
     zclock_sleep (1000);
 
-    printf("\ncekame na zpravu2\n");
-    zmsg_t *recv = mlm_client_recv (sender);
-    assert (recv);
 
-    char *recvmsg = zmsg_popstr(recv);
-    assert (streq(recvmsg,"world"));
-
-    zstr_free (&recvmsg);
-    zmsg_destroy(&recv);
-    zmsg_destroy(&msg);
-    }
-    
-    zstr_free (&recvmsg);
-    zmsg_destroy(&recv);
     mlm_client_destroy (&sender);
     zactor_destroy(&outsvr);
     zactor_destroy (&server);

@@ -24,6 +24,7 @@
     </use>
 
     <class name = "bios-outage-server">Bios outage server</class>
+    <class name = "data" private = "1"> Data </class>
 
     <main  name = "bios-agent-outage" service = "1">Agent outage</main>
 
