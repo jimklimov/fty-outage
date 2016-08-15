@@ -112,7 +112,6 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
 
 
 
-
 //  --------------------------------------------------------------------------
 //  Create a new bios_outage_server
 void
@@ -172,27 +171,18 @@ bios_outage_server (zsock_t *pipe, void *args)
         if (!message)
             break;
 
-        char *string = zmsg_popstr(message);
-        if (!string)
+        if (!is_bios_proto(message)) {
+            zmsg_destroy(&message);
             continue;
-
-        if (streq (string, "hello")) {
-            zmsg_t *reply = zmsg_new ();
-            assert (reply);
-
-            int rv = zmsg_addstr(reply, "world");
-            assert(rv == 0);
-
-            const char *msgsender = mlm_client_sender (client);
-            rv = mlm_client_sendto (client, msgsender, "Subject", NULL, 1000, &reply);
-            assert (rv == 0);
-
-            zmsg_destroy(&reply);
-
         }
+        
+        bios_proto_t *proto = bios_proto_decode (&message);        
+        assert (proto);
+        bios_proto_print (proto);
 
-        zstr_free(&string);
-        zmsg_destroy(&message);
+        
+        bios_proto_destroy (&proto);
+        
     }
     zpoller_destroy(&poller);
     mlm_client_destroy (&client);
@@ -225,7 +215,7 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (outsvr, "ENDPOINT", endpoint, "outsvr", NULL);
     zclock_sleep (1000);
 
-    zstr_sendx (outsvr, "CONSUMER", "ALERTS",".*", NULL);
+    zstr_sendx (outsvr, "CONSUMER", "xyz",".*", NULL);
     zstr_sendx (outsvr, "CONSUMER", "ALERTS", NULL);
 
     zstr_sendx (outsvr, "PRODUCER", "ALERTS", NULL);
@@ -237,43 +227,21 @@ bios_outage_server_test (bool verbose)
     int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
     assert (rv >= 0);
 
-    // reply on certain message hello --> world
-    zmsg_t *msg = zmsg_new ();
-    zmsg_addstr (msg, "hello");
-
-    printf("\ncekani na zpravu1\n");
-    rv = mlm_client_sendto (sender,"outsvr", "subject", NULL, 1000, &msg);
+    rv = mlm_client_set_producer (sender, "xyz");
     assert (rv >= 0);
-    zclock_sleep (3000);
     
-    zmsg_t *recv = mlm_client_recv (sender);
-    assert (recv);
+    zmsg_t *
+    sendmsg = bios_proto_encode_asset (
+        NULL,
+        "UPS33",
+        "update",
+        NULL);
 
-    char *recvmsg = zmsg_popstr(recv); 
-    assert (streq(recvmsg,"world"));
-    
-    {
-    zmsg_t *msg = zmsg_new ();
-    zmsg_addstr (msg, "hello");
-
-    rv = mlm_client_sendto (sender,"outsvr", "subject", NULL, 1000, &msg);
+    rv = mlm_client_send (sender, "subject",  &sendmsg);
     assert (rv >= 0);
     zclock_sleep (1000);
 
-    printf("\ncekame na zpravu2\n");
-    zmsg_t *recv = mlm_client_recv (sender);
-    assert (recv);
 
-    char *recvmsg = zmsg_popstr(recv);
-    assert (streq(recvmsg,"world"));
-
-    zstr_free (&recvmsg);
-    zmsg_destroy(&recv);
-    zmsg_destroy(&msg);
-    }
-    
-    zstr_free (&recvmsg);
-    zmsg_destroy(&recv);
     mlm_client_destroy (&sender);
     zactor_destroy(&outsvr);
     zactor_destroy (&server);
