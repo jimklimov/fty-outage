@@ -62,21 +62,14 @@ bios_outage_server (zsock_t *pipe, void *args)
                 timestamp = zclock_mono();            
                 continue;
                 }
-<<<<<<< HEAD
-=======
+
             timestamp = zclock_mono();
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
         }
 
         int64_t now = zclock_mono();
 
         if (now - timestamp  >= timeout){
-<<<<<<< HEAD
-            printf(" >>> I am alive. <<<\n"); 
-=======
             printf(" >>> I am alive. <<<\n");
-
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
             timestamp = zclock_mono ();
         }
 
@@ -124,26 +117,10 @@ bios_outage_server (zsock_t *pipe, void *args)
                 zstr_free (&command);
                 zmsg_destroy (&msg);
                 continue;
-<<<<<<< HEAD
             }
-            else if (streq (command, "PRODUCER")){
+            else if (streq (command, "PRODUCER")) {
                 char *stream = zmsg_popstr(msg);
                 assert(stream);
-                
-=======
-
-            } else {
-                zsys_debug ("Unknown command: %s\n", command);
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
-                zstr_free (&command);
-                zmsg_print (msg);
-                zmsg_destroy (&msg);
-                continue;
-<<<<<<< HEAD
-                 
-=======
-
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
             }
 	    else {
                 zsys_debug ("Unknown command: %s. Terminating.\n", command);
@@ -194,20 +171,13 @@ bios_outage_server_test (bool verbose)
     printf (" * bios_outage_server: ");
 
     //  @selftest
-<<<<<<< HEAD
-    static const char *endpoint =  "ipc://malamute-test2";
-=======
 
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
+    static const char *endpoint =  "ipc://malamute-test2";
+
     zactor_t *server = zactor_new (mlm_server, (void*) "Malamute");
     zstr_sendx (server, "BIND",endpoint, NULL);
     zclock_sleep (100);
 
-<<<<<<< HEAD
-    
-=======
-
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
     zactor_t *outsvr = zactor_new (bios_outage_server, (void*) NULL);
     assert (outsvr);
 
@@ -252,22 +222,9 @@ bios_outage_server_test (bool verbose)
 
     char *recvmsg = zmsg_popstr(recv);
     assert (streq(recvmsg,"world"));
-<<<<<<< HEAD
+
     */
            
-=======
-
-    zclock_sleep(1500);
-    zstr_sendx(outsvr,"PRINT","Karol", "Bara", NULL);
-    zclock_sleep(1000);
-    zstr_sendx(outsvr,"PRINT","Karol2", "Bara2", NULL);
-    zclock_sleep(1000);
-    zstr_sendx(outsvr,"PRINT","Karol3", "Bara3", NULL);
-    zclock_sleep(1000);
-    zstr_sendx(outsvr,"PRINT","Karol4", "Bara4", NULL);
-    zclock_sleep(6000);
-
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
     {
     zmsg_t *msg = zmsg_new ();
     zmsg_addstr (msg, "hello");
@@ -292,12 +249,7 @@ bios_outage_server_test (bool verbose)
     mlm_client_destroy (&sender);
     zactor_destroy(&outsvr);
     zactor_destroy (&server);
-
-<<<<<<< HEAD
-=======
-    printf ("koncime\n");
-
->>>>>>> 23e876beb4f35dbd2ca28172a7d6b5f76e43e9e2
+    
     //  @end
     printf ("OK\n");
 }
