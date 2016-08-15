@@ -96,7 +96,7 @@ bios_outage_server (zsock_t *pipe, void *args)
 		        if (endpoint && name) {
 			        int rv = mlm_client_connect (client, endpoint, 1000, name);
 			        if (rv >= 0) {
-				         printf ("mlm_client_connest OK\n");
+				         printf ("mlm_client_connect OK\n");
 			        }
 		        }
 		        else {
@@ -109,22 +109,32 @@ bios_outage_server (zsock_t *pipe, void *args)
             }    
             else if (streq (command, "CONSUMER")) {
                 char *stream = zmsg_popstr(msg);
-                assert(stream);
                 char *regex = zmsg_popstr(msg);
-                assert(regex);
+                
+                if (stream && regex) {
+                    int rv = mlm_client_set_consumer (client, stream, regex);
+                    if (rv >= 0 )
+                        printf("mlm_client_set_consumer OK\n ");
+                }
+                else
+                   printf("Invalid CONSUMER  message.");
                 
                 zstr_free (&stream);
                 zstr_free (&regex);                                
-                zstr_free (&command);
-                zmsg_destroy (&msg);
                 continue;
             }
             else if (streq (command, "PRODUCER")) {
                 char *stream = zmsg_popstr(msg);
-                assert(stream);
+                if (stream){
+                    int rv = mlm_client_set_producer (client, stream);
+                    if (rv >= 0 )
+                        printf("mlm_client_set_producer OK\n ");                    
+                }
+                else
+                    printf("Invalid PRODUCER message.");
             }
 	        else {
-                zsys_debug ("Unknown command: %s. Terminating.\n", command);
+                zsys_debug ("Unknown actor command: %s. \n", command);
 	        }
             zstr_free (&command);
             zmsg_destroy (&msg);
@@ -178,7 +188,7 @@ bios_outage_server_test (bool verbose)
 
     zactor_t *server = zactor_new (mlm_server, (void*) "Malamute");
     zstr_sendx (server, "BIND",endpoint, NULL);
-    zclock_sleep (100);
+    zclock_sleep (1000);
 
     zactor_t *outsvr = zactor_new (bios_outage_server, (void*) NULL);
     assert (outsvr);
@@ -187,10 +197,10 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (outsvr, "ENDPOINT",  NULL);
     zstr_sendx (outsvr, "KARCI", endpoint, "outsvr", NULL);
     zstr_sendx (outsvr, "ENDPOINT", endpoint, "outsvr", NULL);
-    zclock_sleep (100);
+    zclock_sleep (1000);
 
     mlm_client_t *sender = mlm_client_new();
-    int rv = mlm_client_connect (sender, endpoint, 100, "sender");
+    int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
     assert (rv >= 0);
 
     zmsg_t *msg = zmsg_new ();
@@ -207,26 +217,6 @@ bios_outage_server_test (bool verbose)
     char *recvmsg = zmsg_popstr(recv); 
     assert (streq(recvmsg,"world"));
     
-    /*
-    mlm_client_t *sender = mlm_client_new();
-    int rv = mlm_client_connect (sender,"ipc://malamute-test", 100, "sender");
-    assert (rv >= 0);
-
-    zmsg_t *msg = zmsg_new ();
-    zmsg_addstr (msg, "hello");
-
-    rv = mlm_client_sendto (sender,"outage", "subject", NULL, 1000, &msg);
-    assert (rv >= 0);
-    zclock_sleep (100);
-
-    zmsg_t *recv = mlm_client_recv (sender);
-    assert (recv);
-
-    char *recvmsg = zmsg_popstr(recv);
-    assert (streq(recvmsg,"world"));
-
-    */
-           
     {
     zmsg_t *msg = zmsg_new ();
     zmsg_addstr (msg, "hello");
