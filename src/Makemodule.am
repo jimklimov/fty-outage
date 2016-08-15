@@ -22,6 +22,7 @@ include_HEADERS += \
 
 endif
 src_libagent_outage_la_SOURCES = \
+    src/data.c \
     src/platform.h
 
 if ENABLE_DRAFTS

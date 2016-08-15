@@ -123,6 +123,7 @@ ENDIF (BIOSPROTO_FOUND)
 set (agent_outage_headers
     include/agent_outage_library.h
     include/agent_outage.h
+    src/data.h
 )
 
 IF (ENABLE_DRAFTS)
@@ -139,6 +140,7 @@ install(FILES ${agent_outage_headers} DESTINATION include)
 ########################################################################
 include_directories("${SOURCE_DIR}/src" "${SOURCE_DIR}/include")
 set (agent_outage_sources
+    src/data.c
 )
 
 IF (ENABLE_DRAFTS)
@@ -236,6 +238,7 @@ set(CLASSTEST_TIMEOUT 5 CACHE STRING "Timeout of the selftest of a class")
 set(TOTAL_TIMEOUT 20 CACHE STRING "Timout of the total testsuite")
 
 set(TEST_CLASSES
+    data
 )
 
 IF (ENABLE_DRAFTS)

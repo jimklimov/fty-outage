@@ -28,6 +28,7 @@ noinst_LTLIBRARIES =
 TESTS =
 
 EXTRA_DIST = \
+    src/data.h \
     src/agent_outage_classes.h
 
 include $(srcdir)/src/Makemodule.am
