@@ -46,28 +46,32 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     if (!proto)
         return;
 
-    // data from bios_proto
-    zhash_t *aux = bios_proto_get_aux (proto);
+    // data from bios_proto message
+    uint64_t timestamp = bios_proto_aux_number (proto, "time", zclock_time());
     const char *source = bios_proto_element_src (proto);
-    uint64_t ttl = (uint64_t)bios_proto_ttl (proto);
+    uint64_t ttl = (uint64_t) bios_proto_ttl (proto);
 
     // getting timestamp from metrics
-    uint64_t timestamp = (uint64_t) zhash_lookup (aux, "AGENT_CM_TIME");    
-    uint64_t expiration_time = timestamp + 2*ttl;
-
+        
+    printf(">>>> timestamp: %"PRIu64, *timestamp);
+    printf("\n");
+    
+    uint64_t expiration_time = *timestamp + 2*ttl;
+    printf(">>>> expiration time: %"PRIu64, expiration_time);
+    printf("\n");
+    
     void *rv = zhashx_lookup (self->assets, source);
     if (!rv) {
         printf ("%s not in table\n", source);
         uint64_t *expiration_p = (uint64_t*) malloc (sizeof (uint64_t));
         *expiration_p = expiration_time;
-        zhashx_insert (self->assets, source, (void*) expiration_p);
+        zhashx_insert (self->assets, source, (void*) expiration_p);       
     }    
     else
     {
-        printf ("adding %s to the table\n", source);
+        printf ("updating table with %s\n", source);
         uint64_t * expiration_p = (uint64_t*) rv;
         *expiration_p = expiration_time;
-        printf(">>>>table size %zu\n", zhashx_size(self->assets));
     }
     
     zhash_destroy (&aux);
@@ -88,10 +92,8 @@ zlistx_t
 	     expiration = zhashx_next (self->assets))
     {
         //uint64_t now = zclock_time();
-        uint64_t now = 6;
-        printf (">>>cas %"PRIu64, now);
-        printf(" \n");
-
+        uint64_t now = 7;
+ 
         if ((uint64_t) expiration >= now)
         {
             void *source = (void*) zhashx_cursor(self->assets);
@@ -101,11 +103,19 @@ zlistx_t
 
     zlistx_destroy(&dead);         
     return dead;
-
 }
 
+// ------------------------------------------------------------------------
+// destructor for zhashx items
+static void
+s_free (void **x_p) {
+    if (*x_p) {
+        free ((uint32_t*) *x_p);
+        *x_p = NULL;
+    }
+}
     
-//  --------------------------------------------------------------------------
+//  -----------------------------------------------------------------------
 //  Create a new data
 
 data_t *
@@ -114,6 +124,7 @@ data_new (void)
     data_t *self = (data_t *) zmalloc (sizeof (data_t));
     assert (self);
     self -> assets = zhashx_new();
+    zhashx_set_destructor (self -> assets, s_free);
     assert (self -> assets);
     
     return self;
@@ -136,8 +147,15 @@ data_destroy (data_t **self_p)
     }
 }
 
-
-
+// support fn for test
+// - reads expiration time for device (source) from zhashx
+uint64_t
+zhashx_get_expiration_test (data_t *self, char *source)
+{
+    assert(self);
+    uint64_t *expiration = (uint64_t*) zhashx_lookup (self->assets, source);
+    return *expiration;
+}   
 
 //  --------------------------------------------------------------------------
 //  Self test of this class
@@ -147,36 +165,47 @@ data_test (bool verbose)
 {
     printf (" * data: \n");
   
-    //  aux data for matric
+    //  aux data for matric - var_name | msg issued
     zhash_t *aux = zhash_new();
-    // zhash_autofree (aux);
+    uint64_t *issued_p =  (uint64_t*) malloc (sizeof (uint64_t));
+    *issued_p = 2;
+    
     zhash_update(aux,"key1", "val1");
-    zhash_update(aux,"AGENT_CM_TYPE" , "2");
+    zhash_update(aux,"AGENT_CM_TIME" , (void*) issued_p);
     zhash_update(aux,"key2" , "val2");
-    
-    // create new metrics 
-    zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
-    bios_proto_t *proto_n = bios_proto_decode (&met_n);
 
-    // update metric
-    zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS3", "100", "C", 6);
-    bios_proto_t *proto_u = bios_proto_decode (&met_u);
-    
-    // key .. source, val ...expiration
+    // key .. source, val ...expiration (t+2*ttl)
     data_t *data = data_new ();
     assert(data);
-        
-    data_put(data, &proto_u);
-    data_put(data, &proto_n);
-
-    char *UPS4exp = (char*)zhashx_lookup(data->assets,"UPS4");
-    printf("expiration time of UPS4 %s", UPS4exp);
-    //    void *UPS3exp = zhashx_lookup(data->assets,"UPS3");
-    //printf("expiration time of UPS3 %"PRIu64, *(uint64_t*) UPS3exp);
-
-    // give me dead devices
-    data_get_dead(data);
     
+    // create new metric UPS4 - exp OK
+    zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
+    bios_proto_t *proto_n = bios_proto_decode (&met_n);
+    data_put(data, &proto_n);
+    
+    // create new metric UPS3 - exp NOT OK
+    met_n = bios_proto_encode_metric (aux, "device", "UPS3", "100", "C", 1);
+    proto_n = bios_proto_decode (&met_n);
+    data_put(data, &proto_n);
+    
+    printf (">>>UPS3 expr: %"PRIu64,zhashx_get_expiration_test(data, "UPS3"));
+    printf(" \n");
+    assert (zhashx_size (data->assets) == 2);
+           
+    // give me dead devices
+    zlistx_t *list = data_get_dead(data);
+            
+    // update metric - exp NOT OK
+    zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 2);
+    bios_proto_t *proto_u = bios_proto_decode (&met_u);
+    data_put(data, &proto_u);
+    assert (zhashx_size (data->assets) == 2);
+    
+    // give me dead devices
+    list = data_get_dead(data);
+
+ 
+    zlistx_destroy(&list);
     bios_proto_destroy(&proto_n);
     bios_proto_destroy(&proto_u);
     zmsg_destroy(&met_n);
