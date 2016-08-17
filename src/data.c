@@ -53,10 +53,10 @@ data_put (data_t *self, bios_proto_t  **proto_p)
 
     // getting timestamp from metrics
         
-    printf(">>>> timestamp: %"PRIu64, *timestamp);
+    printf(">>>> timestamp: %"PRIu64, timestamp);
     printf("\n");
     
-    uint64_t expiration_time = *timestamp + 2*ttl;
+    uint64_t expiration_time = timestamp + 2*ttl;
     printf(">>>> expiration time: %"PRIu64, expiration_time);
     printf("\n");
     
@@ -74,7 +74,6 @@ data_put (data_t *self, bios_proto_t  **proto_p)
         *expiration_p = expiration_time;
     }
     
-    zhash_destroy (&aux);
     bios_proto_destroy(proto_p);
 }
 
@@ -167,11 +166,9 @@ data_test (bool verbose)
   
     //  aux data for matric - var_name | msg issued
     zhash_t *aux = zhash_new();
-    uint64_t *issued_p =  (uint64_t*) malloc (sizeof (uint64_t));
-    *issued_p = 2;
     
     zhash_update(aux,"key1", "val1");
-    zhash_update(aux,"AGENT_CM_TIME" , (void*) issued_p);
+    zhash_update(aux,"time" , "6");
     zhash_update(aux,"key2" , "val2");
 
     // key .. source, val ...expiration (t+2*ttl)
