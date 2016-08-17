@@ -34,12 +34,75 @@ struct _data_t {
     zhashx_t *assets;   // asset_name | (timestamp | ttl )
 };
 
-struct characteristics_t {
-    uint64_t timestamp;
-    uint64_t ttl;
-};
+// ------------------------------------------------------------------------
+// put data 
+void
+data_put (data_t *self, bios_proto_t  **proto_p) 
+{
+    assert (self);
+    assert (proto_p);
+    
+    bios_proto_t *proto = *proto_p;
+    if (!proto)
+        return;
+
+    // data from bios_proto
+    zhash_t *aux = bios_proto_get_aux (proto);
+    const char *source = bios_proto_element_src (proto);
+    uint64_t ttl = (uint64_t)bios_proto_ttl (proto);
+
+    // getting timestamp from metrics
+    uint64_t timestamp = (uint64_t) zhash_lookup (aux, "AGENT_CM_TIME");    
+
+    // metrics is alive until timestamp + 2*ttl
+    uint64_t *expiration_p = (uint64_t*) malloc (sizeof (uint64_t));
+    *expiration_p = timestamp + 2*ttl;
+        
+    void *rv = zhashx_lookup (self->assets, source);
+    if (!rv) {
+        printf ("%s not in table\n", source);
+        zhashx_insert (self->assets, source, (void*) expiration_p);
+    }    
+    else
+    {
+        printf ("adding %s to the table\n", source);
+        zhashx_update(self->assets, source, (void*) expiration_p);
+        printf(">>>>table size %zu\n", zhashx_size(self->assets));
+    }
+    
+    zhash_destroy (&aux);
+    bios_proto_destroy(proto_p);
+}
 
 
+// --------------------------------------------------------------------------
+// get non-responding devices
+zlistx_t
+*data_get_dead (data_t *self)
+{
+    // list of devices
+    zlistx_t *dead = zlistx_new();
+     
+    for (void *expiration = zhashx_first (self->assets); 
+         expiration != NULL;                 
+	     expiration = zhashx_next (self->assets))
+    {
+        //uint64_t now = zclock_time();
+        uint64_t now = 6;
+        printf (">>>cas %"PRIu64, now);
+        printf(" \n");
+
+        if ((uint64_t) expiration >= now)
+        {
+            void *source = (void*) zhashx_cursor(self->assets);
+            zlistx_add_start (dead, source);
+        }
+    }    
+
+    zlistx_destroy(&dead);         
+    return dead;
+
+}
 
     
 //  --------------------------------------------------------------------------
@@ -50,7 +113,9 @@ data_new (void)
 {
     data_t *self = (data_t *) zmalloc (sizeof (data_t));
     assert (self);
-    //  Initialize class properties here
+    self -> assets = zhashx_new();
+    assert (self -> assets);
+    
     return self;
 }
 
@@ -64,12 +129,15 @@ data_destroy (data_t **self_p)
     assert (self_p);
     if (*self_p) {
         data_t *self = *self_p;
-        //  Free class properties here
-        //  Free object itself
+       
+        zhashx_destroy(&self -> assets);
         free (self);
         *self_p = NULL;
     }
 }
+
+
+
 
 //  --------------------------------------------------------------------------
 //  Self test of this class
@@ -77,13 +145,51 @@ data_destroy (data_t **self_p)
 void
 data_test (bool verbose)
 {
-    printf (" * data: ");
+    printf (" * data: \n");
+  
+    //  aux data for matric
+    zhash_t *aux = zhash_new();
+    // zhash_autofree (aux);
+    zhash_update(aux,"key1", "val1");
+    zhash_update(aux,"AGENT_CM_TYPE" , "2");
+    zhash_update(aux,"key2" , "val2");
+    
+    // create new metrics 
+    zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
+    bios_proto_t *proto_n = bios_proto_decode (&met_n);
 
-    //  @selftest
-    //  Simple create/destroy test
-    data_t *self = data_new ();
-    assert (self);
-    data_destroy (&self);
+    // update metric
+    zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS3", "100", "C", 6);
+    bios_proto_t *proto_u = bios_proto_decode (&met_u);
+    
+    // key .. source, val ...expiration
+    data_t *data = data_new ();
+    assert(data);
+        
+    // insert devices - device | expiration
+    zhashx_update(data->assets, "UPS1", "10"); 
+    zhashx_update(data->assets, "UPS2", "12");  
+    zhashx_update(data->assets, "UPS3", "11");  
+
+    data_put(data, &proto_u);
+    data_put(data, &proto_n);
+
+    char *UPS4exp = (char*)zhashx_lookup(data->assets,"UPS4");
+    printf("expiration time of UPS4 %s", UPS4exp);
+    //    void *UPS3exp = zhashx_lookup(data->assets,"UPS3");
+    //printf("expiration time of UPS3 %"PRIu64, *(uint64_t*) UPS3exp);
+
+    // give me dead devices
+    data_get_dead(data);
+    
+    bios_proto_destroy(&proto_n);
+    bios_proto_destroy(&proto_u);
+    zmsg_destroy(&met_n);
+    zmsg_destroy(&met_u); 
+    zhash_destroy(&aux);
+    data_destroy (&data);
+
+
     //  @end
     printf ("OK\n");
 }
