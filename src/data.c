@@ -53,20 +53,20 @@ data_put (data_t *self, bios_proto_t  **proto_p)
 
     // getting timestamp from metrics
     uint64_t timestamp = (uint64_t) zhash_lookup (aux, "AGENT_CM_TIME");    
+    uint64_t expiration_time = timestamp + 2*ttl;
 
-    // metrics is alive until timestamp + 2*ttl
-    uint64_t *expiration_p = (uint64_t*) malloc (sizeof (uint64_t));
-    *expiration_p = timestamp + 2*ttl;
-        
     void *rv = zhashx_lookup (self->assets, source);
     if (!rv) {
         printf ("%s not in table\n", source);
+        uint64_t *expiration_p = (uint64_t*) malloc (sizeof (uint64_t));
+        *expiration_p = expiration_time;
         zhashx_insert (self->assets, source, (void*) expiration_p);
     }    
     else
     {
         printf ("adding %s to the table\n", source);
-        zhashx_update(self->assets, source, (void*) expiration_p);
+        uint64_t * expiration_p = (uint64_t*) rv;
+        *expiration_p = expiration_time;
         printf(">>>>table size %zu\n", zhashx_size(self->assets));
     }
     
@@ -166,11 +166,6 @@ data_test (bool verbose)
     data_t *data = data_new ();
     assert(data);
         
-    // insert devices - device | expiration
-    zhashx_update(data->assets, "UPS1", "10"); 
-    zhashx_update(data->assets, "UPS2", "12");  
-    zhashx_update(data->assets, "UPS3", "11");  
-
     data_put(data, &proto_u);
     data_put(data, &proto_n);
 
