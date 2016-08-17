@@ -31,10 +31,11 @@
 //  --------------------------------------------------------------------------
 //  Static helper functions
 
-
-// 1 - $TERM
-// 0 - message processed and deleted
-
+/*
+ * return values :
+ * 1 - $TERM recieved
+ * 0 - message processed and deleted
+ */
 
 static int
 s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
@@ -112,8 +113,8 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
 
 
 
-//  --------------------------------------------------------------------------
-//  Create a new bios_outage_server
+// --------------------------------------------------------------------------
+// Create a new bios_outage_server
 void
 bios_outage_server (zsock_t *pipe, void *args)
 {
@@ -125,9 +126,9 @@ bios_outage_server (zsock_t *pipe, void *args)
 
     zsock_signal (pipe, 0);
 
-    // poller timeout
-    int64_t timeout = 2000;
-    int64_t timestamp = zclock_mono ();
+    //    poller timeout
+    uint64_t timeout = 2000;
+    uint64_t timestamp = zclock_mono ();
 
     while (!zsys_interrupted)
     {
@@ -148,7 +149,7 @@ bios_outage_server (zsock_t *pipe, void *args)
             timestamp = zclock_mono();
         }
 
-        int64_t now = zclock_mono();
+        uint64_t now = zclock_mono();
 
         if (now - timestamp  >= timeout){
             printf(" >>> I am alive. <<<\n");
@@ -189,15 +190,15 @@ bios_outage_server (zsock_t *pipe, void *args)
 }
 
 
-//  --------------------------------------------------------------------------
-//  Self test of this class
+// --------------------------------------------------------------------------
+// Self test of this class
 
 void
 bios_outage_server_test (bool verbose)
 {
     printf (" * bios_outage_server: \n");
 
-    //  @selftest
+    //     @selftest
 
     static const char *endpoint =  "ipc://malamute-test2";
 
@@ -208,7 +209,7 @@ bios_outage_server_test (bool verbose)
     zactor_t *outsvr = zactor_new (bios_outage_server, (void*) NULL);
     assert (outsvr);
 
-    // actor commands
+    //    actor commands
     zstr_sendx (outsvr, "ENDPOINT", endpoint, NULL);
     zstr_sendx (outsvr, "ENDPOINT",  NULL);
     zstr_sendx (outsvr, "KARCI", endpoint, "outsvr", NULL);
@@ -222,20 +223,28 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (outsvr, "PRODUCER", NULL);
 
 
-    // hello-world test
+    //    hello-world test
     mlm_client_t *sender = mlm_client_new();
     int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
     assert (rv >= 0);
 
-    rv = mlm_client_set_producer (sender, "xyz");
+    rv = mlm_client_set_producer (sender, "xyz"); // "xyz = stream"
     assert (rv >= 0);
-    
-    zmsg_t *
-    sendmsg = bios_proto_encode_asset (
+
+    // create asset
+    /*    zmsg_t *sendmsg = bios_proto_encode_asset (
         NULL,
         "UPS33",
         "update",
         NULL);
+*/
+    zmsg_t *sendmsg = bios_proto_encode_metric (
+        NULL,
+        "dev",
+        "UPS33",
+        "1",
+        "c",
+        10);
 
     rv = mlm_client_send (sender, "subject",  &sendmsg);
     assert (rv >= 0);
