@@ -148,12 +148,12 @@ zhashx_get_expiration_test (data_t *self, char *source)
 
 void
 zlistx_print_dead (zlistx_t *self) {
-    zsys_debug ("list of nonresponding devices: \n");
+    zsys_debug ("zlistx_print_dead:");
     for (void *it = zlistx_first(self);
          it != NULL;
          it = zlistx_next(self))
     {
-        zsys_debug ("%s\n",(char *) it);
+        zsys_debug ("\t%s",(char *) it);
     }
 
 }
@@ -188,8 +188,10 @@ data_test (bool verbose)
     data_put(data, &proto_n);
                
     // give me dead devices
-    zlistx_t *list = data_get_dead(data);    
-    zlistx_print_dead(list);
+    zlistx_t *list = data_get_dead(data);
+    if (verbose)
+        zlistx_print_dead(list);
+    assert (zlistx_size (list) == 2);
     
     zlistx_destroy (&list);
 
@@ -201,7 +203,9 @@ data_test (bool verbose)
 
     // give me dead devices
     list = data_get_dead(data);
-    zlistx_print_dead(list);
+    if (verbose)
+        zlistx_print_dead(list);
+    assert (zlistx_size (list) == 1);
      
     zlistx_destroy(&list);
     bios_proto_destroy(&proto_n);
