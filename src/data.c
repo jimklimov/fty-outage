@@ -71,8 +71,8 @@ data_put (data_t *self, bios_proto_t  **proto_p)
 
 // --------------------------------------------------------------------------
 // get non-responding devices 
-zlistx_t
-*data_get_dead (data_t *self)
+zlistx_t *
+data_get_dead (data_t *self)
 {
     // list of devices
     zlistx_t *dead = zlistx_new();
@@ -146,6 +146,7 @@ zhashx_get_expiration_test (data_t *self, char *source)
     return *expiration;
 }   
 
+// print content of zlistx
 void
 zlistx_print_dead (zlistx_t *self) {
     zsys_debug ("list of nonresponding devices: \n");
