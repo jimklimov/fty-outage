@@ -51,8 +51,7 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     const char *source = bios_proto_element_src (proto);
     uint64_t ttl = (uint64_t) bios_proto_ttl (proto);
 
-    // getting timestamp from metrics
-        
+    // getting timestamp from metrics        
     printf(">>>> timestamp: %"PRIu64, timestamp);
     printf("\n");
     
@@ -70,8 +69,9 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     else
     {
         printf ("updating table with %s\n", source);
-        uint64_t * expiration_p = (uint64_t*) rv;
+        uint64_t *expiration_p = (uint64_t*) rv;
         *expiration_p = expiration_time;
+      
     }
     
     bios_proto_destroy(proto_p);
@@ -79,28 +79,30 @@ data_put (data_t *self, bios_proto_t  **proto_p)
 
 
 // --------------------------------------------------------------------------
-// get non-responding devices
+// get non-responding devices , ... list must be freed do shlavicky
 zlistx_t
 *data_get_dead (data_t *self)
 {
     // list of devices
     zlistx_t *dead = zlistx_new();
-     
-    for (void *expiration = zhashx_first (self->assets); 
+       
+    for (void *expiration =  zhashx_first (self->assets); 
          expiration != NULL;                 
 	     expiration = zhashx_next (self->assets))
     {
         //uint64_t now = zclock_time();
         uint64_t now = 7;
  
-        if ((uint64_t) expiration >= now)
-        {
+        if (*(uint64_t*) expiration >= now)
+        {   
             void *source = (void*) zhashx_cursor(self->assets);
-            zlistx_add_start (dead, source);
+            assert(zlistx_add_start (dead, source));
+            printf(">>>>adding dead device %"PRIu64, *(uint64_t*) expiration);
+            printf("\n");
         }
     }    
-
-    zlistx_destroy(&dead);         
+    
+    //zlistx_destroy(&dead);         
     return dead;
 }
 
@@ -168,7 +170,7 @@ data_test (bool verbose)
     zhash_t *aux = zhash_new();
     
     zhash_update(aux,"key1", "val1");
-    zhash_update(aux,"time" , "6");
+    zhash_update(aux,"time" , "2");
     zhash_update(aux,"key2" , "val2");
 
     // key .. source, val ...expiration (t+2*ttl)
@@ -185,23 +187,34 @@ data_test (bool verbose)
     proto_n = bios_proto_decode (&met_n);
     data_put(data, &proto_n);
     
-    printf (">>>UPS3 expr: %"PRIu64,zhashx_get_expiration_test(data, "UPS3"));
-    printf(" \n");
+    printf (">>>UPS3 expr: %"PRIu64,zhashx_get_expiration_test (data, "UPS3"));
+    printf (" \n");
     assert (zhashx_size (data->assets) == 2);
            
     // give me dead devices
     zlistx_t *list = data_get_dead(data);
+    if (zlistx_size (list) != 1)
+        printf("error \n");
             
     // update metric - exp NOT OK
     zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 2);
     bios_proto_t *proto_u = bios_proto_decode (&met_u);
     data_put(data, &proto_u);
-    assert (zhashx_size (data->assets) == 2);
+
+    printf (">>>UPS4 expr4: %"PRIu64,zhashx_get_expiration_test (data, "UPS4"));
+    printf (" \n");
+    printf (">>>UPS3 expr: %"PRIu64,zhashx_get_expiration_test (data, "UPS3"));
+    printf (" \n");
     
     // give me dead devices
     list = data_get_dead(data);
+            
+    if (zlistx_size (list) != 2)
+       printf("errorrrrr\n");
 
- 
+    printf("size list %lu\n", zlistx_size (list));
+
+    
     zlistx_destroy(&list);
     bios_proto_destroy(&proto_n);
     bios_proto_destroy(&proto_u);
@@ -209,7 +222,6 @@ data_test (bool verbose)
     zmsg_destroy(&met_u); 
     zhash_destroy(&aux);
     data_destroy (&data);
-
 
     //  @end
     printf ("OK\n");
