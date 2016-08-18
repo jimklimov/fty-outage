@@ -27,7 +27,7 @@
 */
 
 #include "agent_outage_classes.h"
-
+#include "data.h"
 //  --------------------------------------------------------------------------
 //  Static helper functions
 
@@ -52,11 +52,10 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
         return 0;
     }
     if (streq(command, "$TERM")) {
-         zsys_info ("Got $TERM");
-         zmsg_destroy (message_p);
-         zstr_free (&command);
-         return 1;
-         
+        zsys_info ("Got $TERM");
+        zmsg_destroy (message_p);
+        zstr_free (&command);
+        return 1;      
     }
     else
     if (streq(command, "ENDPOINT"))
@@ -180,12 +179,28 @@ bios_outage_server (zsock_t *pipe, void *args)
         bios_proto_t *proto = bios_proto_decode (&message);        
         assert (proto);
         bios_proto_print (proto);
+        
+        data_t *data = data_new();
+
+        //process data
+        data_put (data, &proto);
+        
+        // give nonresponding devices
+        zlistx_t *dead = zlistx_new();
+        dead = data_get_dead (data);
+
+        if (zlistx_size (dead))
+        {
+            printf("dead list not empty \n");
+        }
 
         
-        bios_proto_destroy (&proto);
+        zlistx_destroy (&dead);
+        data_destroy (&data);
+        //bios_proto_destroy (&proto);
         
     }
-    zpoller_destroy(&poller);
+    zpoller_destroy (&poller);
     mlm_client_destroy (&client);
 }
 
@@ -199,7 +214,6 @@ bios_outage_server_test (bool verbose)
     printf (" * bios_outage_server: \n");
 
     //     @selftest
-
     static const char *endpoint =  "ipc://malamute-test2";
 
     zactor_t *server = zactor_new (mlm_server, (void*) "Malamute");
@@ -222,37 +236,28 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (outsvr, "PRODUCER", "ALERTS", NULL);
     zstr_sendx (outsvr, "PRODUCER", NULL);
 
-
-    //    hello-world test
-    mlm_client_t *sender = mlm_client_new();
+    //   set producer  test
+    mlm_client_t *sender = mlm_client_new ();
     int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
     assert (rv >= 0);
 
-    rv = mlm_client_set_producer (sender, "xyz"); // "xyz = stream"
+    rv = mlm_client_set_producer (sender, "xyz"); // "xyz = stream name"
     assert (rv >= 0);
 
-    // create asset
-    /*    zmsg_t *sendmsg = bios_proto_encode_asset (
-        NULL,
-        "UPS33",
-        "update",
-        NULL);
-*/
     zmsg_t *sendmsg = bios_proto_encode_metric (
         NULL,
         "dev",
         "UPS33",
         "1",
         "c",
-        10);
+        0);
 
     rv = mlm_client_send (sender, "subject",  &sendmsg);
     assert (rv >= 0);
     zclock_sleep (1000);
 
-
     mlm_client_destroy (&sender);
-    zactor_destroy(&outsvr);
+    zactor_destroy (&outsvr);
     zactor_destroy (&server);
     
     //  @end
