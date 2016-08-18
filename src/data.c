@@ -43,8 +43,7 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     assert (proto_p);
     
     bios_proto_t *proto = *proto_p;
-    if (!proto)
-        return;
+    assert (proto);
 
     // data from bios_proto message
     uint64_t timestamp = bios_proto_aux_number (proto, "time", zclock_time());
