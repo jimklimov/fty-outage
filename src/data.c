@@ -238,6 +238,24 @@ data_test (bool verbose)
     if (verbose)
         zlistx_print_dead(list);
     assert (zlistx_size (list) == 1);
+
+    // test asset message
+    zhash_destroy (&aux);
+    aux = zhash_new ();
+    zhash_insert (aux, "status", "active");
+    zhash_insert (aux, "type", "device");
+    zhash_insert (aux, "sub_type", "epdu");
+    zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", "CREATE", NULL);
+    bios_proto_t* bmsg = bios_proto_decode (&msg);
+    data_put (data, &bmsg);
+
+    assert (zhashx_lookup (data->assets, "PDU1"));
+    int64_t diff = (int64_t)zhashx_get_expiration_test (data, "PDU1") - zclock_time ();
+    if (verbose)
+        zsys_debug ("diff=%"PRIi64, diff);
+    assert (diff > 6000 && diff <= DEFAULT_EXPIRATION_TIME);
+    // TODO: test it more
+
      
     zlistx_destroy(&list);
     bios_proto_destroy(&proto_n);
