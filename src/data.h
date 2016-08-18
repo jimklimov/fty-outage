@@ -37,6 +37,14 @@ AGENT_OUTAGE_EXPORT data_t *
 AGENT_OUTAGE_EXPORT void
     data_destroy (data_t **self_p);
 
+// Put data - calculates metric expiration time for each asset  
+AGENT_OUTAGE_EXPORT void
+    data_put (data_t *self, bios_proto_t  **proto_p) ;
+
+// Returns list of nonresponding devices, user is responsible for destroying the list
+AGENT_OUTAGE_EXPORT zlistx_t *
+    data_get_dead (data_t *self);
+    
 //  Self test of this class
 AGENT_OUTAGE_EXPORT void
     data_test (bool verbose);
