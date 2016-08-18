@@ -148,12 +148,12 @@ zhashx_get_expiration_test (data_t *self, char *source)
 
 void
 zlistx_print_dead (zlistx_t *self) {
-    printf("list of nonresponding devices: \n");
+    zsys_debug ("list of nonresponding devices: \n");
     for (void *it = zlistx_first(self);
          it != NULL;
          it = zlistx_next(self))
     {
-        printf("%s\n",(char *) it); 
+        zsys_debug ("%s\n",(char *) it);
     }
 
 }
