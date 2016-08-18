@@ -28,11 +28,26 @@
 
 #include "agent_outage_classes.h"
 
+#define DEFAULT_EXPIRATION_TIME 2*3600
+
 //  Structure of our class
 
 struct _data_t {
     zhashx_t *assets;   // asset_name | (timestamp | ttl )
 };
+
+// put value into hash if not exists - allocates memory for value
+static int
+s_insert (zhashx_t *hash, const char* key, uint64_t value) {
+    void *rv = zhashx_lookup (hash, key);
+    if (!rv) {
+        uint64_t *mem = (uint64_t*) malloc (sizeof (uint64_t));
+        assert (mem);
+        *mem = value;
+        return zhashx_insert (hash, key, (void*) mem);
+    }
+    return -1;
+}
 
 // ------------------------------------------------------------------------
 // put data 
@@ -45,26 +60,42 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     bios_proto_t *proto = *proto_p;
     assert (proto);
 
-    // data from bios_proto message
-    uint64_t timestamp = bios_proto_aux_number (proto, "time", zclock_time());
-    const char *source = bios_proto_element_src (proto);
-    uint64_t ttl = (uint64_t) bios_proto_ttl (proto);
+    uint64_t expiration_time = -1;
 
-    // getting timestamp from metrics
-    uint64_t expiration_time = timestamp + 2*ttl;
+    if (bios_proto_id (proto) == BIOS_PROTO_METRIC) {
+
+        uint64_t timestamp = bios_proto_aux_number (proto, "time", zclock_time());
+        const char *source = bios_proto_element_src (proto);
+        uint64_t ttl = bios_proto_ttl (proto);
+
+        // getting timestamp from metrics
+        expiration_time = timestamp + 2*ttl;
+
+        // update cache
+        void *rv = zhashx_lookup (self->assets, source);
+        if (!rv)
+            s_insert (self->assets, source, expiration_time);
+        else
+        {
+            uint64_t *expiration_p = (uint64_t*) rv;
+            *expiration_p = expiration_time;
+        }
     
-    void *rv = zhashx_lookup (self->assets, source);
-    if (!rv) {
-        uint64_t *expiration_p = (uint64_t*) malloc (sizeof (uint64_t));
-        *expiration_p = expiration_time;
-        zhashx_insert (self->assets, source, (void*) expiration_p);       
-    }    
-    else
-    {
-        uint64_t *expiration_p = (uint64_t*) rv;
-        *expiration_p = expiration_time;
     }
-    
+    else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
+
+        expiration_time = zclock_time () + DEFAULT_EXPIRATION_TIME;
+        const char* operation = bios_proto_operation (proto);
+        const char *source = bios_proto_name (proto);
+
+        // remove asset from cache
+        if (  streq (operation, "DELETE")
+            ||streq (bios_proto_aux_string (proto, "status", ""), "retired"))
+            zhashx_delete (self->assets, source);
+        // other asset operations - add to the cache if not present
+        else
+            s_insert (self->assets, source, zclock_time () + DEFAULT_EXPIRATION_TIME);
+    }
     bios_proto_destroy(proto_p);
 }
 
