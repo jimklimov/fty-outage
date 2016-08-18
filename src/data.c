@@ -76,8 +76,7 @@ zlistx_t
 {
     // list of devices
     zlistx_t *dead = zlistx_new();
-    zlistx_set_destructor(dead, (czmq_destructor*) zstr_free);
-       
+
     for (void *expiration =  zhashx_first (self->assets); 
         expiration != NULL;                 
 	    expiration = zhashx_next (self->assets))
@@ -185,6 +184,7 @@ data_test (bool verbose)
     zlistx_t *list = data_get_dead(data);
     if (zlistx_size (list) != 1)
         printf("error \n");
+    zlistx_destroy (&list);
             
     // update metric - exp NOT OK
     zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 2);
