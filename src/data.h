@@ -45,7 +45,7 @@ AGENT_OUTAGE_EXPORT void
 AGENT_OUTAGE_EXPORT zlistx_t *
     data_get_dead (data_t *self);
 
-//  Self test of this git class
+//  Self test of this class
 AGENT_OUTAGE_EXPORT void
     data_test (bool verbose);
 
