@@ -94,6 +94,7 @@ data_put (data_t *self, bios_proto_t  **proto_p)
             zhashx_delete (self->assets, source);
         // other asset operations - add to the cache if not present
         else
+        if (streq (bios_proto_aux_string (proto, "type", ""), "device"))
             s_insert (self->assets, source, zclock_time () + DEFAULT_EXPIRATION_TIME);
     }
     bios_proto_destroy(proto_p);
