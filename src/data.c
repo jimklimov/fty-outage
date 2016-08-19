@@ -123,7 +123,6 @@ data_get_dead (data_t *self)
         {   
             void *source = (void*) zhashx_cursor(self->assets);
             assert(zlistx_add_start (dead, source));
-           
         }
     }    
     

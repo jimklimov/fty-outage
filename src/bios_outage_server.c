@@ -83,7 +83,6 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
         "outage",
         "WARNING",
         source);
-    zmsg_print (msg);
     mlm_client_send (self->client, subject, &msg);
     zstr_free (&subject);
 }
@@ -235,7 +234,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                        it != NULL;
                        it = zlistx_next (dead_devices))
             {
-                const char* source = (const char*) zlistx_cursor (dead_devices);
+                const char* source = (const char*) it;
                 if (self->verbose)
                     zsys_debug ("\tsource=%s", source);
                 if (!zhash_lookup (self->active_alerts, source)) {
@@ -244,6 +243,9 @@ bios_outage_server (zsock_t *pipe, void *args)
                     s_osrv_send_alert (self, source, "ACTIVE");
                     zhash_insert (self->active_alerts, source, TRUE);
                 }
+                else
+                    if (self->verbose)
+                        zsys_debug ("\t\talert already active for source=%s", source);
             }
             zlistx_destroy (&dead_devices);
         }
@@ -372,6 +374,8 @@ bios_outage_server_test (bool verbose)
     //to give a time for all the clients and actors to initialize
     zclock_sleep (1000);
 
+    // test case 01 to send the metric with short TTL
+    // expected: ACTIVE alert to be sent
     zmsg_t *sendmsg = bios_proto_encode_metric (
         NULL,
         "dev",
@@ -380,18 +384,46 @@ bios_outage_server_test (bool verbose)
         "c",
         0);
 
-    zsys_debug ("sent metric");
     rv = mlm_client_send (sender, "subject",  &sendmsg);
     assert (rv >= 0);
     zclock_sleep (1000);
 
     zmsg_t *msg = mlm_client_recv (consumer);
-    zmsg_print (msg);
-    zmsg_destroy (&msg);
+    assert (msg);
+    bios_proto_t *bmsg = bios_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        bios_proto_print (bmsg);
+    assert (streq (bios_proto_element_src (bmsg), "UPS33"));
+    assert (streq (bios_proto_state (bmsg), "ACTIVE"));
+    bios_proto_destroy (&bmsg);
 
+    // test case 02 to resolve alert by sending an another metric
+    // expected: RESOLVED alert to be sent
+    sendmsg = bios_proto_encode_metric (
+        NULL,
+        "dev",
+        "UPS33",
+        "1",
+        "c",
+        1000);
+
+    rv = mlm_client_send (sender, "subject",  &sendmsg);
+    assert (rv >= 0);
+
+    msg = mlm_client_recv (consumer);
+    assert (msg);
+    bmsg = bios_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        bios_proto_print (bmsg);
+    assert (streq (bios_proto_element_src (bmsg), "UPS33"));
+    assert (streq (bios_proto_state (bmsg), "RESOLVED"));
+    bios_proto_destroy (&bmsg);
+
+    zactor_destroy(&outsvr);
     mlm_client_destroy (&sender);
     mlm_client_destroy (&consumer);
-    zactor_destroy(&outsvr);
     zactor_destroy (&server);
     
     //  @end
