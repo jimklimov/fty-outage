@@ -29,11 +29,45 @@
 
 #include "agent_outage_classes.h"
 #include "data.h"
-//  --------------------------------------------------------------------------
-//  Static helper functions
+
+typedef struct _s_osrv_t {
+    bool verbose;
+    mlm_client_t *client;
+    data_t *assets;
+    zhash_t *active_alerts;
+} s_osrv_t;
+
+static s_osrv_t *
+s_osrv_new () {
+    s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
+    assert (self);
+
+    self->verbose = false;
+    self->client = mlm_client_new ();
+    assert (self->client);
+    self->assets = data_new ();
+    assert (self->assets);
+    self->active_alerts = zhash_new ();
+    assert (self->active_alerts);
+
+    return self;
+}
 
 static void
-s_send_outage_alert_for (mlm_client_t *client, const char* source, const char* state) {
+s_osrv_destroy (s_osrv_t **self_p) {
+    assert (self_p);
+    if (*self_p) {
+        s_osrv_t *self = *self_p;
+        zhash_destroy (&self->active_alerts);
+        data_destroy (&self->assets);
+        mlm_client_destroy (&self->client);
+        *self_p = NULL;
+    }
+}
+
+static void
+s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
+    assert (self);
     zmsg_t *msg = bios_proto_encode_alert (
             NULL,
             "outage",
@@ -48,7 +82,7 @@ s_send_outage_alert_for (mlm_client_t *client, const char* source, const char* s
         "WARNING",
         source);
     zmsg_print (msg);
-    mlm_client_send (client, subject, &msg);
+    mlm_client_send (self->client, subject, &msg);
     zstr_free (&subject);
 }
 
@@ -59,9 +93,9 @@ s_send_outage_alert_for (mlm_client_t *client, const char* source, const char* s
  */
 
 static int
-s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
+s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
 {
-    assert(client);
+    assert (self);
     assert(message_p && *message_p);
 
     zmsg_t *message =  *message_p;
@@ -86,7 +120,7 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
                 
 		if (endpoint && name) {
             zsys_debug ("ENDPOINT: %s/%s", endpoint, name);
-		    int rv = mlm_client_connect (client, endpoint, 1000, name);
+		    int rv = mlm_client_connect (self->client, endpoint, 1000, name);
             if (rv == -1) 
 			    zsys_error("mlm_client_connect failed\n");
 	    }
@@ -103,7 +137,7 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
 
         if (stream && regex) {
             zsys_debug ("CONSUMER: %s/%s", stream, regex);
-            int rv = mlm_client_set_consumer (client, stream, regex);
+            int rv = mlm_client_set_consumer (self->client, stream, regex);
             if (rv == -1 )
                 zsys_error("mlm_set_consumer failed");
         }
@@ -117,7 +151,7 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
         char *stream = zmsg_popstr(message);
                 
         if (stream){
-            int rv = mlm_client_set_producer (client, stream);
+            int rv = mlm_client_set_producer (self->client, stream);
             if (rv == -1 )
                 zsys_error ("mlm_client_set_producer");
         }
@@ -142,15 +176,10 @@ bios_outage_server (zsock_t *pipe, void *args)
     static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
                                           // basically we don't care about value, just it must be != NULL
 
-    mlm_client_t *client = mlm_client_new ();
-    assert (client);
-    data_t *assets = data_new ();
-    assert (assets);
-    zhash_t *active_alerts = zhash_new ();
-    assert (active_alerts);
+    s_osrv_t *self = s_osrv_new ();
+    assert (self);
 
-    zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (client), NULL);
-    zsys_debug ("mlm_client_msgpipe=<%p>", (void*) mlm_client_msgpipe (client));
+    zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (self->client), NULL);
     assert(poller);
 
     zsock_signal (pipe, 0);
@@ -174,7 +203,7 @@ bios_outage_server (zsock_t *pipe, void *args)
         now = zclock_mono ();
         if (zpoller_expired (poller) || (now - last_dead_check) > TIMEOUT) {
             zsys_debug ("poller expired");
-            zlistx_t *dead_devices = data_get_dead (assets);
+            zlistx_t *dead_devices = data_get_dead (self->assets);
             zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
             for (void *it = zlistx_first (dead_devices);
                        it != NULL;
@@ -182,33 +211,31 @@ bios_outage_server (zsock_t *pipe, void *args)
             {
                 const char* source = (const char*) zlistx_cursor (dead_devices);
                 zsys_debug ("\tsource=%s", source);
-                if (!zhash_lookup (active_alerts, source)) {
+                if (!zhash_lookup (self->active_alerts, source)) {
                     zsys_debug ("\t\tsend alert for source=%s", source);
-                    s_send_outage_alert_for (client, source, "ACTIVE");
-                    zhash_insert (active_alerts, source, TRUE);
+                    s_osrv_send_alert (self, source, "ACTIVE");
+                    zhash_insert (self->active_alerts, source, TRUE);
                 }
             }
             zlistx_destroy (&dead_devices);
         }
 
-        zsys_debug ("which=<%p>", (void*) which);
-        zsys_debug ("\tmlm_client_msgpipe=<%p>", (void*) mlm_client_msgpipe (client));
         if (which == pipe) {
             zsys_debug ("which == pipe");
             zmsg_t *msg = zmsg_recv(pipe);
             if (!msg)
                 break;
 
-            int rv = s_actor_commands (client, &msg);
+            int rv = s_osrv_actor_commands (self, &msg);
             if (rv == 1)
                 break;
             continue;
         }
         // react on incoming messages
         else
-        if (which == mlm_client_msgpipe (client)) {
+        if (which == mlm_client_msgpipe (self->client)) {
 
-            zmsg_t *message = mlm_client_recv (client);
+            zmsg_t *message = mlm_client_recv (self->client);
             if (!message)
                 break;
 
@@ -222,19 +249,18 @@ bios_outage_server (zsock_t *pipe, void *args)
                 // resolve sent alert
                 if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
                     const char* source = bios_proto_element_src (bmsg);
-                    if (zhash_lookup (active_alerts, source)) {
-                        s_send_outage_alert_for (client, source, "RESOLVED");
-                        zhash_delete (active_alerts, source);
+                    if (zhash_lookup (self->active_alerts, source)) {
+                        s_osrv_send_alert (self, source, "RESOLVED");
+                        zhash_delete (self->active_alerts, source);
                     }
                 }
                 // add to cache
                 zsys_debug ("data_put");
-                data_put (assets, &bmsg);
+                data_put (self->assets, &bmsg);
             }
             bios_proto_destroy (&bmsg);
             continue;
         }
-<<<<<<< 0100668a368d38cacd09d23a1459eaab03494ea3
         
         bios_proto_t *proto = bios_proto_decode (&message);        
         assert (proto);
@@ -258,16 +284,10 @@ bios_outage_server (zsock_t *pipe, void *args)
         zlistx_destroy (&dead);
         data_destroy (&data);
         //bios_proto_destroy (&proto);
-        
-=======
-        zsys_debug ("ELSE");
->>>>>>> Problem: no unit test for outage server
     }
     zpoller_destroy (&poller);
     // TODO: save/load the state
-    data_destroy (&assets);
-    zhash_destroy (&active_alerts);
-    mlm_client_destroy (&client);
+    s_osrv_destroy (&self);
 }
 
 
