@@ -104,6 +104,15 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     }
     bios_proto_destroy(proto_p);
 }
+// --------------------------------------------------------------------------
+// delete from cache
+void
+data_delete (data_t *self, const char* source) {
+    assert (self);
+    assert (source);
+
+    zhashx_delete (self->assets, source);
+}
 
 // --------------------------------------------------------------------------
 // get non-responding devices 

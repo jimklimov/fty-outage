@@ -87,7 +87,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
     zstr_free (&subject);
 }
 
-// resolve alert if sent
+// resolve alert if sent + remove it from list of active alerts
 static void
 s_osrv_resolve_alert (s_osrv_t* self, const char* source) {
     assert (self);
@@ -290,14 +290,18 @@ bios_outage_server (zsock_t *pipe, void *args)
             bios_proto_t *bmsg = bios_proto_decode (&message);
             if (bmsg) {
                 // resolve sent alert
-                if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
+                if (   bios_proto_id (bmsg) == BIOS_PROTO_METRIC
+                    || bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
                     const char* source = bios_proto_element_src (bmsg);
                     s_osrv_resolve_alert (self, source);
+                    data_put (self->assets, &bmsg);
                 }
-                // add to cache
-                if (self->verbose)
-                    zsys_debug ("data_put");
-                data_put (self->assets, &bmsg);
+                else
+                if (streq (mlm_client_address (self->client), "_METRICS_UNAVAILABLE")) {
+                    const char* source = bios_proto_element_src (bmsg);
+                    s_osrv_resolve_alert (self, source);
+                    data_delete (self->assets, source);
+                }
             }
             bios_proto_destroy (&bmsg);
             continue;
