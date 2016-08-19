@@ -307,29 +307,6 @@ bios_outage_server (zsock_t *pipe, void *args)
             bios_proto_destroy (&bmsg);
             continue;
         }
-        
-        bios_proto_t *proto = bios_proto_decode (&message);        
-        assert (proto);
-        bios_proto_print (proto);
-        
-        data_t *data = data_new();
-
-        //process data
-        data_put (data, &proto);
-        
-        // give nonresponding devices
-        zlistx_t *dead = zlistx_new();
-        dead = data_get_dead (data);
-
-        if (zlistx_size (dead))
-        {
-            printf("dead list not empty \n");
-        }
-
-        
-        zlistx_destroy (&dead);
-        data_destroy (&data);
-        //bios_proto_destroy (&proto);
     }
     zpoller_destroy (&poller);
     // TODO: save/load the state
@@ -364,7 +341,6 @@ bios_outage_server_test (bool verbose)
     rv = mlm_client_set_consumer (consumer, "ALERTS", ".*");
     assert (rv >= 0);
 
-
     zactor_t *self = zactor_new (bios_outage_server, (void*) NULL);
     assert (self);
 
@@ -379,13 +355,6 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
     zstr_sendx (self, "TIMEOUT", "1000", NULL);
 
-    //   set producer  test
-    mlm_client_t *sender = mlm_client_new ();
-    int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
-    assert (rv >= 0);
-
-    rv = mlm_client_set_producer (sender, "xyz"); // "xyz = stream name"
-    assert (rv >= 0);
     //to give a time for all the clients and actors to initialize
     zclock_sleep (1000);
 
