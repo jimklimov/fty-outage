@@ -52,5 +52,30 @@ int main (int argc, char *argv [])
     //  Insert main code here
     if (verbose)
         zsys_info ("bios_agent_outage - Agent outage");
+
+    zactor_t *self = zactor_new (bios_outage_server, NULL);
+    if (verbose)
+        zstr_sendx (self, "VERBOSE", NULL);
+    zstr_sendx (self, "ENDPOINT", "ipc://@/malamute", "agent-outage", NULL);
+    zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "ASSETS", ".*", NULL);
+    zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
+    zstr_sendx (self, "TIMEOUT", "30000", NULL);
+
+    // src/malamute.c, under MPL license
+    while (true) {
+        char *message = zstr_recv (self);
+        if (message) {
+            puts (message);
+            zstr_free (&message);
+        }
+        else {
+            puts ("interrupted");
+            break;
+        }
+    }
+
+    zactor_destroy (&self);
     return 0;
 }

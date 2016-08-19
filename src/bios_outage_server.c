@@ -364,19 +364,19 @@ bios_outage_server_test (bool verbose)
     assert (rv >= 0);
 
 
-    zactor_t *outsvr = zactor_new (bios_outage_server, (void*) NULL);
-    assert (outsvr);
+    zactor_t *self = zactor_new (bios_outage_server, (void*) NULL);
+    assert (self);
 
     //    actor commands
     if (verbose)
-        zstr_sendx (outsvr, "VERBOSE", NULL);
-    zstr_sendx (outsvr, "ENDPOINT", endpoint, "outage-actor1", NULL);
-    zstr_sendx (outsvr, "CONSUMER", "METRICS", ".*", NULL);
-    zstr_sendx (outsvr, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
+        zstr_sendx (self, "VERBOSE", NULL);
+    zstr_sendx (self, "ENDPOINT", endpoint, "outage-actor1", NULL);
+    zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
     //TODO: react on those messages to resolve alerts
-    //zstr_sendx (outsvr, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
-    zstr_sendx (outsvr, "PRODUCER", "ALERTS", NULL);
-    zstr_sendx (outsvr, "TIMEOUT", "1000", NULL);
+    //zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
+    zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
+    zstr_sendx (self, "TIMEOUT", "1000", NULL);
 
     //   set producer  test
     mlm_client_t *sender = mlm_client_new ();
@@ -435,7 +435,7 @@ bios_outage_server_test (bool verbose)
     assert (streq (bios_proto_state (bmsg), "RESOLVED"));
     bios_proto_destroy (&bmsg);
 
-    zactor_destroy(&outsvr);
+    zactor_destroy(&self);
     mlm_client_destroy (&sender);
     mlm_client_destroy (&consumer);
     zactor_destroy (&server);
