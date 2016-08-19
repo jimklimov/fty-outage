@@ -25,11 +25,31 @@
 @discuss
 @end
 */
+#define TIMEOUT 30000   //wait at least 30 seconds
 
 #include "agent_outage_classes.h"
 #include "data.h"
 //  --------------------------------------------------------------------------
 //  Static helper functions
+
+static void
+s_send_outage_alert_for (mlm_client_t *client, const char* source, const char* state) {
+    zmsg_t *msg = bios_proto_encode_alert (
+            NULL,
+            "outage",
+            source,
+            state,
+            "WARNING",
+            "Device does not provide expected data, probably offline",
+            zclock_time (),
+            "EMAIL|SMS");
+    char *subject = zsys_sprintf ("%s/%s@%s",
+        "outage",
+        "WARNING",
+        source);
+    mlm_client_send (client, subject, &msg);
+    zstr_free (&subject);
+}
 
 /*
  * return values :
@@ -117,8 +137,15 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
 void
 bios_outage_server (zsock_t *pipe, void *args)
 {
+    static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
+                                          // basically we don't care about value, just it must be != NULL
+
     mlm_client_t *client = mlm_client_new ();
     assert (client);
+    data_t *assets = data_new ();
+    assert (assets);
+    zhash_t *active_alerts = zhash_new ();
+    assert (active_alerts);
 
     zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (client), NULL);
     assert(poller);
@@ -126,53 +153,74 @@ bios_outage_server (zsock_t *pipe, void *args)
     zsock_signal (pipe, 0);
 
     //    poller timeout
-    uint64_t timeout = 2000;
-    uint64_t timestamp = zclock_mono ();
+    uint64_t now = zclock_mono ();
+    uint64_t last_dead_check = now;
 
     while (!zsys_interrupted)
     {
-        void *which = zpoller_wait (poller, timeout);
+        void *which = zpoller_wait (poller, TIMEOUT);
 
         if (which == NULL) {
             if (zpoller_terminated(poller) || zsys_interrupted) {
-                zsys_debug ("Poller terminated.");
+                zsys_info ("Terminating.");
                 break;
             }
-            else {
-                zsys_debug ("Poller expired");
-                printf("I am alive\n");
-                timestamp = zclock_mono();            
-                continue;
-                }
-
-            timestamp = zclock_mono();
         }
 
-        uint64_t now = zclock_mono();
-
-        if (now - timestamp  >= timeout){
-            printf(" >>> I am alive. <<<\n");
-            timestamp = zclock_mono ();
+        // send alerts
+        now = zclock_mono ();
+        if (zpoller_expired (poller) || (now - last_dead_check) > TIMEOUT) {
+            zlistx_t *dead_devices = data_get_dead (assets);
+            for (void *it = zlistx_first (dead_devices);
+                       it != NULL;
+                       it = zlistx_next (dead_devices))
+            {
+                const char* source = (const char*) zlistx_cursor (dead_devices);
+                if (!zhash_lookup (active_alerts, source)) {
+                    s_send_outage_alert_for (client, source, "ACTIVE");
+                    zhash_insert (active_alerts, source, TRUE);
+                }
+            }
+            zlistx_destroy (&dead_devices);
         }
 
         if (which == pipe) {
             zmsg_t *msg = zmsg_recv(pipe);
-            assert (msg);
+            if (!msg)
+                break;
 
             int rv = s_actor_commands (client, &msg);
             if (rv == 1)
                 break;
             continue;    
         }
-        
-        assert (which == mlm_client_msgpipe (client));
+        // react on incoming messages
+        else
+        if (which == mlm_client_msgpipe (client)) {
 
-        zmsg_t *message = mlm_client_recv (client);
-        if (!message)
-            break;
+            zmsg_t *message = mlm_client_recv (client);
+            if (!message)
+                break;
 
-        if (!is_bios_proto(message)) {
-            zmsg_destroy(&message);
+            if (!is_bios_proto(message)) {
+                zmsg_destroy(&message);
+                continue;
+            }
+
+            bios_proto_t *bmsg = bios_proto_decode (&message);
+            if (bmsg) {
+                // resolve sent alert
+                if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
+                    const char* source = bios_proto_element_src (bmsg);
+                    if (zhash_lookup (active_alerts, source)) {
+                        s_send_outage_alert_for (client, source, "RESOLVED");
+                        zhash_delete (active_alerts, source);
+                    }
+                }
+                // add to cache
+                data_put (assets, &bmsg);
+            }
+            bios_proto_destroy (&bmsg);
             continue;
         }
         
@@ -201,6 +249,9 @@ bios_outage_server (zsock_t *pipe, void *args)
         
     }
     zpoller_destroy (&poller);
+    // TODO: save/load the state
+    data_destroy (&assets);
+    zhash_destroy (&active_alerts);
     mlm_client_destroy (&client);
 }
 
