@@ -265,7 +265,7 @@ bios_outage_server_test (bool verbose)
     printf (" * bios_outage_server: \n");
 
     //     @selftest
-    static const char *endpoint =  "ipc://malamute-test2";
+    static const char *endpoint =  "inproc://malamute-test2";
 
     zactor_t *server = zactor_new (mlm_server, (void*) "Malamute");
     zstr_sendx (server, "BIND",endpoint, NULL);
