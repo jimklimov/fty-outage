@@ -63,6 +63,7 @@ s_osrv_destroy (s_osrv_t **self_p) {
         zhash_destroy (&self->active_alerts);
         data_destroy (&self->assets);
         mlm_client_destroy (&self->client);
+        free (self);
         *self_p = NULL;
     }
 }
