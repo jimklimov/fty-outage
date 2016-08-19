@@ -110,7 +110,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         zsys_info ("Got $TERM");
         zmsg_destroy (message_p);
         zstr_free (&command);
-        return 1;      
+        return 1;
     }
     else
     if (streq(command, "ENDPOINT"))
@@ -119,7 +119,8 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
 		char *name = zmsg_popstr (message);
                 
 		if (endpoint && name) {
-            zsys_debug ("ENDPOINT: %s/%s", endpoint, name);
+            if (self->verbose)
+                zsys_debug ("outage_actor: ENDPOINT: %s/%s", endpoint, name);
 		    int rv = mlm_client_connect (self->client, endpoint, 1000, name);
             if (rv == -1) 
 			    zsys_error("mlm_client_connect failed\n");
@@ -136,7 +137,8 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         char *regex = zmsg_popstr(message);
 
         if (stream && regex) {
-            zsys_debug ("CONSUMER: %s/%s", stream, regex);
+            if (self->verbose)
+                zsys_debug ("outage_actor: CONSUMER: %s/%s", stream, regex);
             int rv = mlm_client_set_consumer (self->client, stream, regex);
             if (rv == -1 )
                 zsys_error("mlm_set_consumer failed");
@@ -151,14 +153,22 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         char *stream = zmsg_popstr(message);
                 
         if (stream){
+            if (self->verbose)
+                zsys_debug ("outage_actor: PRODUCER: %s", stream);
             int rv = mlm_client_set_producer (self->client, stream);
             if (rv == -1 )
                 zsys_error ("mlm_client_set_producer");
         }
         zstr_free(&stream);
     }
+    else
+    if (streq (command, "VERBOSE"))
+    {
+        self->verbose = true;
+        zsys_debug ("outage_actor: VERBOSE=true");
+    }
 	else {
-        zsys_error ("Unknown actor command: %s.\n", command);
+        zsys_error ("outage_actor: Unknown actor command: %s.\n", command);
 	}
             
     zstr_free (&command);
@@ -202,17 +212,21 @@ bios_outage_server (zsock_t *pipe, void *args)
         // send alerts
         now = zclock_mono ();
         if (zpoller_expired (poller) || (now - last_dead_check) > TIMEOUT) {
-            zsys_debug ("poller expired");
+            if (self->verbose)
+                zsys_debug ("poller expired");
             zlistx_t *dead_devices = data_get_dead (self->assets);
-            zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
+            if (self->verbose)
+                zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
             for (void *it = zlistx_first (dead_devices);
                        it != NULL;
                        it = zlistx_next (dead_devices))
             {
                 const char* source = (const char*) zlistx_cursor (dead_devices);
-                zsys_debug ("\tsource=%s", source);
+                if (self->verbose)
+                    zsys_debug ("\tsource=%s", source);
                 if (!zhash_lookup (self->active_alerts, source)) {
-                    zsys_debug ("\t\tsend alert for source=%s", source);
+                    if (self->verbose)
+                        zsys_debug ("\t\tsend alert for source=%s", source);
                     s_osrv_send_alert (self, source, "ACTIVE");
                     zhash_insert (self->active_alerts, source, TRUE);
                 }
@@ -221,7 +235,8 @@ bios_outage_server (zsock_t *pipe, void *args)
         }
 
         if (which == pipe) {
-            zsys_debug ("which == pipe");
+            if (self->verbose)
+                zsys_debug ("which == pipe");
             zmsg_t *msg = zmsg_recv(pipe);
             if (!msg)
                 break;
@@ -255,7 +270,8 @@ bios_outage_server (zsock_t *pipe, void *args)
                     }
                 }
                 // add to cache
-                zsys_debug ("data_put");
+                if (self->verbose)
+                    zsys_debug ("data_put");
                 data_put (self->assets, &bmsg);
             }
             bios_proto_destroy (&bmsg);
@@ -324,6 +340,7 @@ bios_outage_server_test (bool verbose)
     assert (outsvr);
 
     //    actor commands
+    zstr_sendx (outsvr, "VERBOSE", NULL);
     zstr_sendx (outsvr, "ENDPOINT", endpoint, "outage-actor1", NULL);
     zstr_sendx (outsvr, "CONSUMER", "METRICS", ".*", NULL);
     zstr_sendx (outsvr, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
