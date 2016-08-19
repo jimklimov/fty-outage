@@ -34,7 +34,7 @@ BuildRequires:  systemd-devel
 BuildRequires:  zeromq-devel
 BuildRequires:  czmq-devel
 BuildRequires:  malamute-devel
-BuildRequires:  biosproto-devel
+BuildRequires:  libbiosproto-devel
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -63,7 +63,7 @@ Requires:       libagent_outage0 = %{version}
 Requires:       zeromq-devel
 Requires:       czmq-devel
 Requires:       malamute-devel
-Requires:       biosproto-devel
+Requires:       libbiosproto-devel
 
 %description devel
 agent-outage agent that sends alerts when device does not communicate..
