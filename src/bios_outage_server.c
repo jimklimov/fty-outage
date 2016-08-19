@@ -32,6 +32,7 @@
 
 typedef struct _s_osrv_t {
     bool verbose;
+    uint64_t timeout_ms;
     mlm_client_t *client;
     data_t *assets;
     zhash_t *active_alerts;
@@ -43,6 +44,7 @@ s_osrv_new () {
     assert (self);
 
     self->verbose = false;
+    self->timeout_ms = TIMEOUT;
     self->client = mlm_client_new ();
     assert (self->client);
     self->assets = data_new ();
@@ -162,6 +164,18 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         zstr_free(&stream);
     }
     else
+    if (streq (command, "TIMEOUT"))
+    {
+        char *timeout = zmsg_popstr(message);
+
+        if (timeout){
+            self->timeout_ms = (uint64_t) atoll (timeout);
+            if (self->verbose)
+                zsys_debug ("outage_actor: TIMEOUT: \"%s\"/%"PRIu64, timeout, self->timeout_ms);
+        }
+        zstr_free(&timeout);
+    }
+    else
     if (streq (command, "VERBOSE"))
     {
         self->verbose = true;
@@ -200,7 +214,7 @@ bios_outage_server (zsock_t *pipe, void *args)
 
     while (!zsys_interrupted)
     {
-        void *which = zpoller_wait (poller, TIMEOUT);
+        void *which = zpoller_wait (poller, self->timeout_ms);
 
         if (which == NULL) {
             if (zpoller_terminated(poller) || zsys_interrupted) {
@@ -211,7 +225,7 @@ bios_outage_server (zsock_t *pipe, void *args)
 
         // send alerts
         now = zclock_mono ();
-        if (zpoller_expired (poller) || (now - last_dead_check) > TIMEOUT) {
+        if (zpoller_expired (poller) || (now - last_dead_check) > self->timeout_ms) {
             if (self->verbose)
                 zsys_debug ("poller expired");
             zlistx_t *dead_devices = data_get_dead (self->assets);
@@ -320,7 +334,6 @@ bios_outage_server_test (bool verbose)
 
     zactor_t *server = zactor_new (mlm_server, (void*) "Malamute");
     zstr_sendx (server, "BIND",endpoint, NULL);
-    zclock_sleep (1000);
 
     // malamute clients
     mlm_client_t *sender = mlm_client_new();
@@ -347,6 +360,7 @@ bios_outage_server_test (bool verbose)
     //TODO: react on those messages to resolve alerts
     //zstr_sendx (outsvr, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
     zstr_sendx (outsvr, "PRODUCER", "ALERTS", NULL);
+    zstr_sendx (outsvr, "TIMEOUT", "1000", NULL);
 
     //   set producer  test
     mlm_client_t *sender = mlm_client_new ();
@@ -355,6 +369,8 @@ bios_outage_server_test (bool verbose)
 
     rv = mlm_client_set_producer (sender, "xyz"); // "xyz = stream name"
     assert (rv >= 0);
+    //to give a time for all the clients and actors to initialize
+    zclock_sleep (1000);
 
     zmsg_t *sendmsg = bios_proto_encode_metric (
         NULL,
