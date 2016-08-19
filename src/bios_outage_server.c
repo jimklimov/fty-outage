@@ -87,6 +87,18 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
     zstr_free (&subject);
 }
 
+// resolve alert if sent
+static void
+s_osrv_resolve_alert (s_osrv_t* self, const char* source) {
+    assert (self);
+    assert (source);
+
+    if (zhash_lookup (self->active_alerts, source)) {
+        s_osrv_send_alert (self, source, "RESOLVED");
+        zhash_delete (self->active_alerts, source);
+    }
+}
+
 /*
  * return values :
  * 1 - $TERM recieved
@@ -280,10 +292,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                 // resolve sent alert
                 if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
                     const char* source = bios_proto_element_src (bmsg);
-                    if (zhash_lookup (self->active_alerts, source)) {
-                        s_osrv_send_alert (self, source, "RESOLVED");
-                        zhash_delete (self->active_alerts, source);
-                    }
+                    s_osrv_resolve_alert (self, source);
                 }
                 // add to cache
                 if (self->verbose)
@@ -355,7 +364,8 @@ bios_outage_server_test (bool verbose)
     assert (outsvr);
 
     //    actor commands
-    zstr_sendx (outsvr, "VERBOSE", NULL);
+    if (verbose)
+        zstr_sendx (outsvr, "VERBOSE", NULL);
     zstr_sendx (outsvr, "ENDPOINT", endpoint, "outage-actor1", NULL);
     zstr_sendx (outsvr, "CONSUMER", "METRICS", ".*", NULL);
     zstr_sendx (outsvr, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
