@@ -41,6 +41,10 @@ AGENT_OUTAGE_EXPORT void
 AGENT_OUTAGE_EXPORT void
     data_put (data_t *self, bios_proto_t  **proto_p);
 
+// delete from cache
+AGENT_OUTAGE_EXPORT void
+    data_delete (data_t *self, const char* source);
+
 // Returns list of nonresponding devices, zlistx entries are refereces
 AGENT_OUTAGE_EXPORT zlistx_t *
     data_get_dead (data_t *self);

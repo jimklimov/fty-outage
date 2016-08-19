@@ -28,11 +28,26 @@
 
 #include "agent_outage_classes.h"
 
+#define DEFAULT_EXPIRATION_TIME 2*3600
+
 //  Structure of our class
 
 struct _data_t {
     zhashx_t *assets;   // asset_name | (timestamp | ttl )
 };
+
+// put value into hash if not exists - allocates memory for value
+static int
+s_insert (zhashx_t *hash, const char* key, uint64_t value) {
+    void *rv = zhashx_lookup (hash, key);
+    if (!rv) {
+        uint64_t *mem = (uint64_t*) malloc (sizeof (uint64_t));
+        assert (mem);
+        *mem = value;
+        return zhashx_insert (hash, key, (void*) mem);
+    }
+    return -1;
+}
 
 // ------------------------------------------------------------------------
 // put data 
@@ -43,30 +58,60 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     assert (proto_p);
     
     bios_proto_t *proto = *proto_p;
-    if (!proto)
-        return;
+    assert (proto);
 
-    // data from bios_proto message
-    uint64_t timestamp = bios_proto_aux_number (proto, "time", zclock_time());
-    const char *source = bios_proto_element_src (proto);
-    uint64_t ttl = (uint64_t) bios_proto_ttl (proto);
+    uint64_t expiration_time = -1;
 
-    // getting timestamp from metrics
-    uint64_t expiration_time = timestamp + 2*ttl;
+    if (bios_proto_id (proto) == BIOS_PROTO_METRIC) {
+
+        uint64_t timestamp = bios_proto_aux_number (proto, "time", zclock_time());
+        const char *source = bios_proto_element_src (proto);
+        uint64_t ttl = bios_proto_ttl (proto);
+
+        // getting timestamp from metrics
+        expiration_time = timestamp + 2*ttl;
+
+        // update cache
+        void *rv = zhashx_lookup (self->assets, source);
+        if (!rv)
+            s_insert (self->assets, source, expiration_time);
+        else
+        {
+            uint64_t *expiration_p = (uint64_t*) rv;
+            *expiration_p = expiration_time;
+        }
     
-    void *rv = zhashx_lookup (self->assets, source);
-    if (!rv) {
-        uint64_t *expiration_p = (uint64_t*) malloc (sizeof (uint64_t));
-        *expiration_p = expiration_time;
-        zhashx_insert (self->assets, source, (void*) expiration_p);       
-    }    
-    else
-    {
-        uint64_t *expiration_p = (uint64_t*) rv;
-        *expiration_p = expiration_time;
     }
-    
+    else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
+
+        expiration_time = zclock_time () + DEFAULT_EXPIRATION_TIME;
+        const char* operation = bios_proto_operation (proto);
+        const char *source = bios_proto_name (proto);
+
+        // remove asset from cache
+        if (  streq (operation, "DELETE")
+            ||streq (bios_proto_aux_string (proto, "status", ""), "retired"))
+            zhashx_delete (self->assets, source);
+        // other asset operations - add ups, epdu or sensors to the cache if not present
+        else
+        if (   streq (bios_proto_aux_string (proto, "type", ""), "device" )) {
+            const char* sub_type = bios_proto_aux_string (proto, "sub_type", "");
+            if (   streq (sub_type, "ups")
+                || streq (sub_type, "epdu")
+                || streq (sub_type, "sensor"))
+                s_insert (self->assets, source, zclock_time () + DEFAULT_EXPIRATION_TIME);
+        }
+    }
     bios_proto_destroy(proto_p);
+}
+// --------------------------------------------------------------------------
+// delete from cache
+void
+data_delete (data_t *self, const char* source) {
+    assert (self);
+    assert (source);
+
+    zhashx_delete (self->assets, source);
 }
 
 // --------------------------------------------------------------------------
@@ -87,7 +132,6 @@ data_get_dead (data_t *self)
         {   
             void *source = (void*) zhashx_cursor(self->assets);
             assert(zlistx_add_start (dead, source));
-           
         }
     }    
     
@@ -207,6 +251,24 @@ data_test (bool verbose)
     if (verbose)
         zlistx_print_dead(list);
     assert (zlistx_size (list) == 1);
+
+    // test asset message
+    zhash_destroy (&aux);
+    aux = zhash_new ();
+    zhash_insert (aux, "status", "active");
+    zhash_insert (aux, "type", "device");
+    zhash_insert (aux, "sub_type", "epdu");
+    zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", "CREATE", NULL);
+    bios_proto_t* bmsg = bios_proto_decode (&msg);
+    data_put (data, &bmsg);
+
+    assert (zhashx_lookup (data->assets, "PDU1"));
+    int64_t diff = (int64_t)zhashx_get_expiration_test (data, "PDU1") - zclock_time ();
+    if (verbose)
+        zsys_debug ("diff=%"PRIi64, diff);
+    assert (diff > 6000 && diff <= DEFAULT_EXPIRATION_TIME);
+    // TODO: test it more
+
      
     zlistx_destroy(&list);
     bios_proto_destroy(&proto_n);
