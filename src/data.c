@@ -92,7 +92,7 @@ data_put (data_t *self, bios_proto_t  **proto_p)
         if (  streq (operation, "DELETE")
             ||streq (bios_proto_aux_string (proto, "status", ""), "retired"))
             zhashx_delete (self->assets, source);
-        // other asset operations - add ups, epdu or senros to the cache if not present
+        // other asset operations - add ups, epdu or sensors to the cache if not present
         else
         if (   streq (bios_proto_aux_string (proto, "type", ""), "device" )) {
             const char* sub_type = bios_proto_aux_string (proto, "sub_type", "");

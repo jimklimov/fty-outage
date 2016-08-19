@@ -47,6 +47,7 @@ s_send_outage_alert_for (mlm_client_t *client, const char* source, const char* s
         "outage",
         "WARNING",
         source);
+    zmsg_print (msg);
     mlm_client_send (client, subject, &msg);
     zstr_free (&subject);
 }
@@ -84,6 +85,7 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
 		char *name = zmsg_popstr (message);
                 
 		if (endpoint && name) {
+            zsys_debug ("ENDPOINT: %s/%s", endpoint, name);
 		    int rv = mlm_client_connect (client, endpoint, 1000, name);
             if (rv == -1) 
 			    zsys_error("mlm_client_connect failed\n");
@@ -100,14 +102,14 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
         char *regex = zmsg_popstr(message);
 
         if (stream && regex) {
-            int rv = mlm_client_set_consumer (client, stream, regex);                    
+            zsys_debug ("CONSUMER: %s/%s", stream, regex);
+            int rv = mlm_client_set_consumer (client, stream, regex);
             if (rv == -1 )
                 zsys_error("mlm_set_consumer failed");
         }
-        
+
         zstr_free (&stream);
-        zstr_free (&regex);                                
-                
+        zstr_free (&regex);
     }
     else
     if (streq (command, "PRODUCER"))
@@ -148,6 +150,7 @@ bios_outage_server (zsock_t *pipe, void *args)
     assert (active_alerts);
 
     zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (client), NULL);
+    zsys_debug ("mlm_client_msgpipe=<%p>", (void*) mlm_client_msgpipe (client));
     assert(poller);
 
     zsock_signal (pipe, 0);
@@ -170,13 +173,17 @@ bios_outage_server (zsock_t *pipe, void *args)
         // send alerts
         now = zclock_mono ();
         if (zpoller_expired (poller) || (now - last_dead_check) > TIMEOUT) {
+            zsys_debug ("poller expired");
             zlistx_t *dead_devices = data_get_dead (assets);
+            zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
             for (void *it = zlistx_first (dead_devices);
                        it != NULL;
                        it = zlistx_next (dead_devices))
             {
                 const char* source = (const char*) zlistx_cursor (dead_devices);
+                zsys_debug ("\tsource=%s", source);
                 if (!zhash_lookup (active_alerts, source)) {
+                    zsys_debug ("\t\tsend alert for source=%s", source);
                     s_send_outage_alert_for (client, source, "ACTIVE");
                     zhash_insert (active_alerts, source, TRUE);
                 }
@@ -184,7 +191,10 @@ bios_outage_server (zsock_t *pipe, void *args)
             zlistx_destroy (&dead_devices);
         }
 
+        zsys_debug ("which=<%p>", (void*) which);
+        zsys_debug ("\tmlm_client_msgpipe=<%p>", (void*) mlm_client_msgpipe (client));
         if (which == pipe) {
+            zsys_debug ("which == pipe");
             zmsg_t *msg = zmsg_recv(pipe);
             if (!msg)
                 break;
@@ -192,7 +202,7 @@ bios_outage_server (zsock_t *pipe, void *args)
             int rv = s_actor_commands (client, &msg);
             if (rv == 1)
                 break;
-            continue;    
+            continue;
         }
         // react on incoming messages
         else
@@ -218,11 +228,13 @@ bios_outage_server (zsock_t *pipe, void *args)
                     }
                 }
                 // add to cache
+                zsys_debug ("data_put");
                 data_put (assets, &bmsg);
             }
             bios_proto_destroy (&bmsg);
             continue;
         }
+<<<<<<< 0100668a368d38cacd09d23a1459eaab03494ea3
         
         bios_proto_t *proto = bios_proto_decode (&message);        
         assert (proto);
@@ -247,6 +259,9 @@ bios_outage_server (zsock_t *pipe, void *args)
         data_destroy (&data);
         //bios_proto_destroy (&proto);
         
+=======
+        zsys_debug ("ELSE");
+>>>>>>> Problem: no unit test for outage server
     }
     zpoller_destroy (&poller);
     // TODO: save/load the state
@@ -271,21 +286,30 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (server, "BIND",endpoint, NULL);
     zclock_sleep (1000);
 
+    // malamute clients
+    mlm_client_t *sender = mlm_client_new();
+    int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
+    assert (rv >= 0);
+    rv = mlm_client_set_producer (sender, "METRICS");
+    assert (rv >= 0);
+
+    mlm_client_t *consumer = mlm_client_new();
+    rv = mlm_client_connect (consumer, endpoint, 5000, "alert-consumer");
+    assert (rv >= 0);
+    rv = mlm_client_set_consumer (consumer, "ALERTS", ".*");
+    assert (rv >= 0);
+
+
     zactor_t *outsvr = zactor_new (bios_outage_server, (void*) NULL);
     assert (outsvr);
 
     //    actor commands
-    zstr_sendx (outsvr, "ENDPOINT", endpoint, NULL);
-    zstr_sendx (outsvr, "ENDPOINT",  NULL);
-    zstr_sendx (outsvr, "KARCI", endpoint, "outsvr", NULL);
-    zstr_sendx (outsvr, "ENDPOINT", endpoint, "outsvr", NULL);
-    zclock_sleep (1000);
-
-    zstr_sendx (outsvr, "CONSUMER", "xyz",".*", NULL);
-    zstr_sendx (outsvr, "CONSUMER", "ALERTS", NULL);
-
+    zstr_sendx (outsvr, "ENDPOINT", endpoint, "outage-actor1", NULL);
+    zstr_sendx (outsvr, "CONSUMER", "METRICS", ".*", NULL);
+    zstr_sendx (outsvr, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
+    //TODO: react on those messages to resolve alerts
+    //zstr_sendx (outsvr, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
     zstr_sendx (outsvr, "PRODUCER", "ALERTS", NULL);
-    zstr_sendx (outsvr, "PRODUCER", NULL);
 
     //   set producer  test
     mlm_client_t *sender = mlm_client_new ();
@@ -303,12 +327,18 @@ bios_outage_server_test (bool verbose)
         "c",
         0);
 
+    zsys_debug ("sent metric");
     rv = mlm_client_send (sender, "subject",  &sendmsg);
     assert (rv >= 0);
     zclock_sleep (1000);
 
+    zmsg_t *msg = mlm_client_recv (consumer);
+    zmsg_print (msg);
+    zmsg_destroy (&msg);
+
     mlm_client_destroy (&sender);
-    zactor_destroy (&outsvr);
+    mlm_client_destroy (&consumer);
+    zactor_destroy(&outsvr);
     zactor_destroy (&server);
     
     //  @end
