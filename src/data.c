@@ -147,13 +147,13 @@ data_put (data_t *self, bios_proto_t  **proto_p)
         const char *source = bios_proto_name (proto);
 
         // remove asset from cache
-        if (  streq (operation, "DELETE")
-            ||streq (bios_proto_aux_string (proto, "status", ""), "retired"))
+        if (  streq (operation, BIOS_PROTO_ASSET_OP_DELETE)
+            ||streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired"))
             zhashx_delete (self->assets, source);
         // other asset operations - add ups, epdu or sensors to the cache if not present
         else
-        if (   streq (bios_proto_aux_string (proto, "type", ""), "device" )) {
-            const char* sub_type = bios_proto_aux_string (proto, "sub_type", "");
+        if (   streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" )) {
+            const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
             if (   streq (sub_type, "ups")
                 || streq (sub_type, "epdu")
                 || streq (sub_type, "sensor"))
@@ -279,8 +279,8 @@ data_test (bool verbose)
     aux = zhash_new ();
     zhash_insert (aux, "status", "active");
     zhash_insert (aux, "type", "device");
-    zhash_insert (aux, "sub_type", "epdu");
-    zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", "CREATE", NULL);
+    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "epdu");
+    zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", BIOS_PROTO_ASSET_OP_CREATE, NULL);
     bios_proto_t* bmsg = bios_proto_decode (&msg);
     data_put (data, &bmsg);
 
