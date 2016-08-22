@@ -157,7 +157,7 @@ data_put (data_t *self, bios_proto_t  **proto_p)
             if (   streq (sub_type, "ups")
                 || streq (sub_type, "epdu")
                 || streq (sub_type, "sensor"))
-                s_insert (self->assets, source, zclock_time () + self->asset_exiry_sec);
+                s_insert (self->assets, source, expiration_time);
         }
     }
     bios_proto_destroy(proto_p);

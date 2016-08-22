@@ -422,6 +422,63 @@ bios_outage_server_test (bool verbose)
     assert (streq (bios_proto_state (bmsg), "RESOLVED"));
     bios_proto_destroy (&bmsg);
 
+    //  cleanup from test case 02 - delete asset from cache
+    sendmsg = bios_proto_encode_asset (
+        NULL,
+        "UPS33",
+        BIOS_PROTO_ASSET_OP_DELETE,
+        NULL);
+    rv = mlm_client_send (sender, "subject",  &sendmsg);
+    assert (rv >= 0);
+
+    // test case 03: add new asset device, wait expiry time and check the alert
+    zhash_t *aux = zhash_new ();
+    zhash_insert (aux, BIOS_PROTO_ASSET_TYPE, "device");
+    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "ups");
+    zhash_insert (aux, BIOS_PROTO_ASSET_STATUS, "active");
+    sendmsg = bios_proto_encode_asset (
+        aux,
+        "UPS42",
+        BIOS_PROTO_ASSET_OP_CREATE,
+        NULL);
+    zhash_destroy (&aux);
+    rv = mlm_client_send (sender, "UPS42",  &sendmsg);
+    assert (rv >= 0);
+
+    msg = mlm_client_recv (consumer);
+    assert (msg);
+    bmsg = bios_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        bios_proto_print (bmsg);
+    assert (streq (bios_proto_element_src (bmsg), "UPS42"));
+    assert (streq (bios_proto_state (bmsg), "ACTIVE"));
+    bios_proto_destroy (&bmsg);
+
+    // test case 04: RESOLVE alert when device is retired
+    aux = zhash_new ();
+    zhash_insert (aux, BIOS_PROTO_ASSET_TYPE, "device");
+    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "ups");
+    zhash_insert (aux, BIOS_PROTO_ASSET_STATUS, "retired");
+    sendmsg = bios_proto_encode_asset (
+        aux,
+        "UPS42",
+        BIOS_PROTO_ASSET_OP_UPDATE,
+        NULL);
+    zhash_destroy (&aux);
+    rv = mlm_client_send (sender, "UPS42",  &sendmsg);
+    assert (rv >= 0);
+
+    msg = mlm_client_recv (consumer);
+    assert (msg);
+    bmsg = bios_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        bios_proto_print (bmsg);
+    assert (streq (bios_proto_element_src (bmsg), "UPS42"));
+    assert (streq (bios_proto_state (bmsg), "RESOLVED"));
+    bios_proto_destroy (&bmsg);
+
     zactor_destroy(&self);
     mlm_client_destroy (&sender);
     mlm_client_destroy (&consumer);
