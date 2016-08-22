@@ -127,14 +127,14 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         return 1;
     }
     else
-    if (streq(command, "ENDPOINT"))
+    if (streq(command, "CONNECT"))
     {
 	    char *endpoint = zmsg_popstr (message);
 		char *name = zmsg_popstr (message);
                 
 		if (endpoint && name) {
             if (self->verbose)
-                zsys_debug ("outage_actor: ENDPOINT: %s/%s", endpoint, name);
+                zsys_debug ("outage_actor: CONNECT: %s/%s", endpoint, name);
 		    int rv = mlm_client_connect (self->client, endpoint, 1000, name);
             if (rv == -1) 
 			    zsys_error("mlm_client_connect failed\n");
@@ -184,6 +184,18 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
             self->timeout_ms = (uint64_t) atoll (timeout);
             if (self->verbose)
                 zsys_debug ("outage_actor: TIMEOUT: \"%s\"/%"PRIu64, timeout, self->timeout_ms);
+        }
+        zstr_free(&timeout);
+    }
+    else
+    if (streq (command, "ASSET-EXPIRY-SEC"))
+    {
+        char *timeout = zmsg_popstr(message);
+
+        if (timeout){
+            data_set_asset_exiry (self->assets, atol (timeout));
+            if (self->verbose)
+                zsys_debug ("outage_actor: ASSET-EXPIRY-SEC: \"%s\"/%"PRIu64, timeout, atol (timeout));
         }
         zstr_free(&timeout);
     }
@@ -352,13 +364,14 @@ bios_outage_server_test (bool verbose)
     //    actor commands
     if (verbose)
         zstr_sendx (self, "VERBOSE", NULL);
-    zstr_sendx (self, "ENDPOINT", endpoint, "outage-actor1", NULL);
+    zstr_sendx (self, "CONNECT", endpoint, "outage-actor1", NULL);
     zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
     //TODO: react on those messages to resolve alerts
     //zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
     zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
     zstr_sendx (self, "TIMEOUT", "1000", NULL);
+    zstr_sendx (self, "ASSET-EXPIRY-SEC", "3", NULL);
 
     //to give a time for all the clients and actors to initialize
     zclock_sleep (1000);
@@ -407,6 +420,63 @@ bios_outage_server_test (bool verbose)
     if (verbose)
         bios_proto_print (bmsg);
     assert (streq (bios_proto_element_src (bmsg), "UPS33"));
+    assert (streq (bios_proto_state (bmsg), "RESOLVED"));
+    bios_proto_destroy (&bmsg);
+
+    //  cleanup from test case 02 - delete asset from cache
+    sendmsg = bios_proto_encode_asset (
+        NULL,
+        "UPS33",
+        BIOS_PROTO_ASSET_OP_DELETE,
+        NULL);
+    rv = mlm_client_send (sender, "subject",  &sendmsg);
+    assert (rv >= 0);
+
+    // test case 03: add new asset device, wait expiry time and check the alert
+    zhash_t *aux = zhash_new ();
+    zhash_insert (aux, BIOS_PROTO_ASSET_TYPE, "device");
+    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "ups");
+    zhash_insert (aux, BIOS_PROTO_ASSET_STATUS, "active");
+    sendmsg = bios_proto_encode_asset (
+        aux,
+        "UPS42",
+        BIOS_PROTO_ASSET_OP_CREATE,
+        NULL);
+    zhash_destroy (&aux);
+    rv = mlm_client_send (sender, "UPS42",  &sendmsg);
+    assert (rv >= 0);
+
+    msg = mlm_client_recv (consumer);
+    assert (msg);
+    bmsg = bios_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        bios_proto_print (bmsg);
+    assert (streq (bios_proto_element_src (bmsg), "UPS42"));
+    assert (streq (bios_proto_state (bmsg), "ACTIVE"));
+    bios_proto_destroy (&bmsg);
+
+    // test case 04: RESOLVE alert when device is retired
+    aux = zhash_new ();
+    zhash_insert (aux, BIOS_PROTO_ASSET_TYPE, "device");
+    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "ups");
+    zhash_insert (aux, BIOS_PROTO_ASSET_STATUS, "retired");
+    sendmsg = bios_proto_encode_asset (
+        aux,
+        "UPS42",
+        BIOS_PROTO_ASSET_OP_UPDATE,
+        NULL);
+    zhash_destroy (&aux);
+    rv = mlm_client_send (sender, "UPS42",  &sendmsg);
+    assert (rv >= 0);
+
+    msg = mlm_client_recv (consumer);
+    assert (msg);
+    bmsg = bios_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        bios_proto_print (bmsg);
+    assert (streq (bios_proto_element_src (bmsg), "UPS42"));
     assert (streq (bios_proto_state (bmsg), "RESOLVED"));
     bios_proto_destroy (&bmsg);
 

@@ -28,12 +28,13 @@
 
 #include "agent_outage_classes.h"
 
-#define DEFAULT_EXPIRATION_TIME 2*3600
+#define DEFAULT_ASSET_EXPIRATION_TIME 2*3600
 
 //  Structure of our class
 
 struct _data_t {
-    zhashx_t *assets;   // asset_name | (timestamp | ttl )
+    zhashx_t *assets;           // asset_name => expires_in_secs
+    uint64_t asset_exiry_sec;   // time when new asset should expire
 };
 
 // put value into hash if not exists - allocates memory for value
@@ -47,6 +48,63 @@ s_insert (zhashx_t *hash, const char* key, uint64_t value) {
         return zhashx_insert (hash, key, (void*) mem);
     }
     return -1;
+}
+
+// ------------------------------------------------------------------------
+// destructor for zhashx items
+static void
+s_free (void **x_p) {
+    if (*x_p) {
+        free ((uint32_t*) *x_p);
+        *x_p = NULL;
+    }
+}
+
+//  -----------------------------------------------------------------------
+//  Create a new data
+data_t *
+data_new (void)
+{
+    data_t *self = (data_t *) zmalloc (sizeof (data_t));
+    assert (self);
+    self -> assets = zhashx_new();
+    self->asset_exiry_sec = DEFAULT_ASSET_EXPIRATION_TIME;
+    zhashx_set_destructor (self -> assets, s_free);
+    assert (self -> assets);
+
+    return self;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Destroy the data
+void
+data_destroy (data_t **self_p)
+{
+    assert (self_p);
+    if (*self_p) {
+        data_t *self = *self_p;
+
+        zhashx_destroy(&self -> assets);
+        free (self);
+        *self_p = NULL;
+    }
+}
+
+// ------------------------------------------------------------------------
+// Return asset expiration time in seconds
+uint64_t
+data_asset_exiry (data_t* self) {
+    assert (self);
+    return self->asset_exiry_sec;
+}
+
+// ------------------------------------------------------------------------
+// Set new asset expiration time
+void
+data_set_asset_exiry (data_t* self, uint64_t expiry_sec) {
+    assert (self);
+    self->asset_exiry_sec = expiry_sec;
 }
 
 // ------------------------------------------------------------------------
@@ -84,22 +142,23 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     }
     else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
 
-        expiration_time = zclock_time () + DEFAULT_EXPIRATION_TIME;
+        expiration_time = zclock_time () + (self->asset_exiry_sec * 1000);
+        zsys_debug ("zclock_time=%"PRIi64 ", expiration_time=%"PRIu64, zclock_time (), expiration_time);
         const char* operation = bios_proto_operation (proto);
         const char *source = bios_proto_name (proto);
 
         // remove asset from cache
-        if (  streq (operation, "DELETE")
-            ||streq (bios_proto_aux_string (proto, "status", ""), "retired"))
+        if (  streq (operation, BIOS_PROTO_ASSET_OP_DELETE)
+            ||streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired"))
             zhashx_delete (self->assets, source);
         // other asset operations - add ups, epdu or sensors to the cache if not present
         else
-        if (   streq (bios_proto_aux_string (proto, "type", ""), "device" )) {
-            const char* sub_type = bios_proto_aux_string (proto, "sub_type", "");
+        if (   streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" )) {
+            const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
             if (   streq (sub_type, "ups")
                 || streq (sub_type, "epdu")
                 || streq (sub_type, "sensor"))
-                s_insert (self->assets, source, zclock_time () + DEFAULT_EXPIRATION_TIME);
+                s_insert (self->assets, source, expiration_time);
         }
     }
     bios_proto_destroy(proto_p);
@@ -136,48 +195,6 @@ data_get_dead (data_t *self)
     }    
     
     return dead;
-}
-
-
-
-// ------------------------------------------------------------------------
-// destructor for zhashx items
-static void
-s_free (void **x_p) {
-    if (*x_p) {
-        free ((uint32_t*) *x_p);
-        *x_p = NULL;
-    }
-}
-    
-//  -----------------------------------------------------------------------
-//  Create a new data
-data_t *
-data_new (void)
-{
-    data_t *self = (data_t *) zmalloc (sizeof (data_t));
-    assert (self);
-    self -> assets = zhashx_new();
-    zhashx_set_destructor (self -> assets, s_free);
-    assert (self -> assets);
-    
-    return self;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Destroy the data
-void
-data_destroy (data_t **self_p)
-{
-    assert (self_p);
-    if (*self_p) {
-        data_t *self = *self_p;
-       
-        zhashx_destroy(&self -> assets);
-        free (self);
-        *self_p = NULL;
-    }
 }
 
 // support fn for test
@@ -221,6 +238,12 @@ data_test (bool verbose)
     // key | expiration (t+2*ttl)
     data_t *data = data_new ();
     assert(data);
+
+    // get/set test
+    assert (data_asset_exiry (data) == DEFAULT_ASSET_EXPIRATION_TIME);
+    data_set_asset_exiry (data, 42);
+    assert (data_asset_exiry (data) == 42);
+    data_set_asset_exiry (data, DEFAULT_ASSET_EXPIRATION_TIME);
     
     // create new metric UPS4 - exp NOK
     zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
@@ -257,8 +280,8 @@ data_test (bool verbose)
     aux = zhash_new ();
     zhash_insert (aux, "status", "active");
     zhash_insert (aux, "type", "device");
-    zhash_insert (aux, "sub_type", "epdu");
-    zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", "CREATE", NULL);
+    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "epdu");
+    zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", BIOS_PROTO_ASSET_OP_CREATE, NULL);
     bios_proto_t* bmsg = bios_proto_decode (&msg);
     data_put (data, &bmsg);
 
@@ -266,7 +289,7 @@ data_test (bool verbose)
     int64_t diff = (int64_t)zhashx_get_expiration_test (data, "PDU1") - zclock_time ();
     if (verbose)
         zsys_debug ("diff=%"PRIi64, diff);
-    assert (diff > 6000 && diff <= DEFAULT_EXPIRATION_TIME);
+    assert (diff > 6000 && diff <= (data_asset_exiry (data) * 1000));
     // TODO: test it more
 
      
