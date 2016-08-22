@@ -188,6 +188,18 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         zstr_free(&timeout);
     }
     else
+    if (streq (command, "ASSET-EXPIRY-SEC"))
+    {
+        char *timeout = zmsg_popstr(message);
+
+        if (timeout){
+            data_set_asset_exiry (self->assets, atol (timeout));
+            if (self->verbose)
+                zsys_debug ("outage_actor: ASSET-EXPIRY-SEC: \"%s\"/%"PRIu64, timeout, atol (timeout));
+        }
+        zstr_free(&timeout);
+    }
+    else
     if (streq (command, "VERBOSE"))
     {
         self->verbose = true;
