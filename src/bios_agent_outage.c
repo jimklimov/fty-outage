@@ -56,7 +56,7 @@ int main (int argc, char *argv [])
     zactor_t *self = zactor_new (bios_outage_server, NULL);
     if (verbose)
         zstr_sendx (self, "VERBOSE", NULL);
-    zstr_sendx (self, "ENDPOINT", "ipc://@/malamute", "agent-outage", NULL);
+    zstr_sendx (self, "CONNECT", "ipc://@/malamute", "agent-outage", NULL);
     zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "ASSETS", ".*", NULL);

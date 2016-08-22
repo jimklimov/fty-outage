@@ -127,14 +127,14 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         return 1;
     }
     else
-    if (streq(command, "ENDPOINT"))
+    if (streq(command, "CONNECT"))
     {
 	    char *endpoint = zmsg_popstr (message);
 		char *name = zmsg_popstr (message);
                 
 		if (endpoint && name) {
             if (self->verbose)
-                zsys_debug ("outage_actor: ENDPOINT: %s/%s", endpoint, name);
+                zsys_debug ("outage_actor: CONNECT: %s/%s", endpoint, name);
 		    int rv = mlm_client_connect (self->client, endpoint, 1000, name);
             if (rv == -1) 
 			    zsys_error("mlm_client_connect failed\n");
@@ -364,7 +364,7 @@ bios_outage_server_test (bool verbose)
     //    actor commands
     if (verbose)
         zstr_sendx (self, "VERBOSE", NULL);
-    zstr_sendx (self, "ENDPOINT", endpoint, "outage-actor1", NULL);
+    zstr_sendx (self, "CONNECT", endpoint, "outage-actor1", NULL);
     zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
     //TODO: react on those messages to resolve alerts
