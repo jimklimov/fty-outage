@@ -371,6 +371,7 @@ bios_outage_server_test (bool verbose)
     //zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
     zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
     zstr_sendx (self, "TIMEOUT", "1000", NULL);
+    zstr_sendx (self, "ASSET-EXPIRY-SEC", "3", NULL);
 
     //to give a time for all the clients and actors to initialize
     zclock_sleep (1000);

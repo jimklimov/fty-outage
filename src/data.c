@@ -142,7 +142,8 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     }
     else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
 
-        expiration_time = zclock_time () + self->asset_exiry_sec;
+        expiration_time = zclock_time () + (self->asset_exiry_sec * 1000);
+        zsys_debug ("zclock_time=%"PRIi64 ", expiration_time=%"PRIu64, zclock_time (), expiration_time);
         const char* operation = bios_proto_operation (proto);
         const char *source = bios_proto_name (proto);
 
@@ -288,7 +289,7 @@ data_test (bool verbose)
     int64_t diff = (int64_t)zhashx_get_expiration_test (data, "PDU1") - zclock_time ();
     if (verbose)
         zsys_debug ("diff=%"PRIi64, diff);
-    assert (diff > 6000 && diff <= data_asset_exiry (data));
+    assert (diff > 6000 && diff <= (data_asset_exiry (data) * 1000));
     // TODO: test it more
 
      
