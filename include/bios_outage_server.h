@@ -28,6 +28,39 @@ extern "C" {
 
 //  @interface
 //  BIOS outage server actor
+//
+//  Create new outage_server instance
+//
+//      zactor_t *outage = zactor_new (outage, NULL);
+//
+//  Destroy the instance
+//
+//      zactor_destroy (&outage);
+//
+//  Enable verbose logging
+//
+//      zstr_sendx (outage, "VERBOSE", NULL);
+//
+//  Connect to malamute endpoint with name
+//
+//      zstr_sendx (outage, "CONNECT", "outage1", NULL);
+//
+//  Let actor consume on stream STREAM pattern PATTERN
+//
+//      zstr_sendx (outage, "CONSUMER", "METRICS", ".*", NULL);
+//
+//  Let it produce messages on stream
+//
+//      zstr_sendx (outage, "PRODUCER", "ALERTS", NULL);
+//
+//  Change default timeout for internal poller. Value is in ms, default is 30 000
+//
+//      zstr_sendx (outage, "TIMEOUT", "1000", NULL);
+//
+// Change default time for asset expiry. Value us in seconds, default is 2 hours
+//
+//      zstr_sendx (outage, "ASSET-EXPIRY-SEC", "3", NULL);
+//
 AGENT_OUTAGE_EXPORT void
     bios_outage_server (zsock_t *pipe, void *args);
 
