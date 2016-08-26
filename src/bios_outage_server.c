@@ -78,8 +78,8 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
             state,
             "WARNING",
             "Device does not provide expected data, probably offline",
-            zclock_time (),
-            "EMAIL|SMS");
+            time (NULL),
+            "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
         "WARNING",
