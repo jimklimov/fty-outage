@@ -78,8 +78,8 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
             state,
             "WARNING",
             "Device does not provide expected data, probably offline",
-            zclock_time (),
-            "EMAIL|SMS");
+            time (NULL),
+            "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
         "WARNING",
@@ -273,6 +273,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                         zsys_debug ("\t\talert already active for source=%s", source);
             }
             zlistx_destroy (&dead_devices);
+            last_dead_check = zclock_mono ();
         }
 
         if (which == pipe) {
