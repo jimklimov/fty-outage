@@ -57,6 +57,10 @@ AGENT_OUTAGE_EXPORT void
 AGENT_OUTAGE_EXPORT zlistx_t *
     data_get_dead (data_t *self);
 
+//  Setup as verbose
+void
+    data_set_verbose (data_t* self, bool verbose);
+
 //  Self test of this class
 AGENT_OUTAGE_EXPORT void
     data_test (bool verbose);

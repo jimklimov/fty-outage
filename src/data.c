@@ -33,6 +33,7 @@
 //  Structure of our class
 
 struct _data_t {
+    bool verbose;
     zhashx_t *assets;           // asset_name => expires_in_secs
     uint64_t asset_exiry_sec;   // time when new asset should expire
 };
@@ -67,6 +68,7 @@ data_new (void)
 {
     data_t *self = (data_t *) zmalloc (sizeof (data_t));
     assert (self);
+    self->verbose = false;
     self -> assets = zhashx_new();
     self->asset_exiry_sec = DEFAULT_ASSET_EXPIRATION_TIME;
     zhashx_set_destructor (self -> assets, s_free);
@@ -75,6 +77,14 @@ data_new (void)
     return self;
 }
 
+//  -----------------------------------------------------------------------
+//  Setup as verbose
+void
+data_set_verbose (data_t* self, bool verbose)
+{
+    assert (self);
+    self->verbose = verbose;
+}
 
 //  --------------------------------------------------------------------------
 //  Destroy the data
@@ -128,6 +138,8 @@ data_put (data_t *self, bios_proto_t  **proto_p)
 
         // getting timestamp from metrics
         expiration_time = timestamp + 2*ttl;
+        if (self->verbose)
+            zsys_debug ("metric: source=%s, expiration_time=%"PRIu64, source, expiration_time);
 
         // update cache
         void *rv = zhashx_lookup (self->assets, source);
@@ -143,9 +155,10 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
 
         expiration_time = zclock_time () + (self->asset_exiry_sec * 1000);
-        zsys_debug ("zclock_time=%"PRIi64 ", expiration_time=%"PRIu64, zclock_time (), expiration_time);
         const char* operation = bios_proto_operation (proto);
         const char *source = bios_proto_name (proto);
+        if (self->verbose)
+            zsys_debug ("asset: source=%s, operation=%s, zclock_time=%"PRIi64 ", expiration_time=%"PRIu64, source, operation, zclock_time (), expiration_time);
 
         // remove asset from cache
         if (  streq (operation, BIOS_PROTO_ASSET_OP_DELETE)
