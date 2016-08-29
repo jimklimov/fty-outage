@@ -203,6 +203,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     if (streq (command, "VERBOSE"))
     {
         self->verbose = true;
+        data_set_verbose (self->assets, true);
         zsys_debug ("outage_actor: VERBOSE=true");
     }
 	else {
