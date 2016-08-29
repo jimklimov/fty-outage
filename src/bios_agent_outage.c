@@ -49,6 +49,10 @@ int main (int argc, char *argv [])
             return 1;
         }
     }
+
+    if (getenv ("BIOS_LOG_LEVEL") && streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG"))
+        verbose = true;
+
     //  Insert main code here
     if (verbose)
         zsys_info ("bios_agent_outage - Agent outage");
