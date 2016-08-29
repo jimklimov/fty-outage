@@ -64,7 +64,7 @@ int main (int argc, char *argv [])
     zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "ASSETS", ".*", NULL);
-    zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
+    zstr_sendx (self, "PRODUCER", BIOS_PROTO_STREAM_ALERTS_SYS, NULL);
     zstr_sendx (self, "TIMEOUT", "30000", NULL);
 
     // src/malamute.c, under MPL license
