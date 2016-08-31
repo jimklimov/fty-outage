@@ -28,7 +28,7 @@
 
 #include "agent_outage_classes.h"
 
-#define DEFAULT_ASSET_EXPIRATION_TIME 2*3600
+#define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60
 
 //  Structure of our class
 
@@ -70,7 +70,7 @@ data_new (void)
     assert (self);
     self->verbose = false;
     self -> assets = zhashx_new();
-    self->asset_exiry_sec = DEFAULT_ASSET_EXPIRATION_TIME;
+    self->asset_exiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
     zhashx_set_destructor (self -> assets, s_free);
     assert (self -> assets);
 
@@ -253,10 +253,10 @@ data_test (bool verbose)
     assert(data);
 
     // get/set test
-    assert (data_asset_exiry (data) == DEFAULT_ASSET_EXPIRATION_TIME);
+    assert (data_asset_exiry (data) == DEFAULT_ASSET_EXPIRATION_TIME_SEC);
     data_set_asset_exiry (data, 42);
     assert (data_asset_exiry (data) == 42);
-    data_set_asset_exiry (data, DEFAULT_ASSET_EXPIRATION_TIME);
+    data_set_asset_exiry (data, DEFAULT_ASSET_EXPIRATION_TIME_SEC);
     
     // create new metric UPS4 - exp NOK
     zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);

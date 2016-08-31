@@ -76,8 +76,8 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
             "outage",
             source,
             state,
-            "WARNING",
-            "Device does not provide expected data, probably offline",
+            "CRITICAL",
+            "Device does not provide expected data. Is can be offline or not configured.",
             time (NULL),
             "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
