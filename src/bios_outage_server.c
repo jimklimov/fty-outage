@@ -25,7 +25,7 @@
 @discuss
 @end
 */
-#define TIMEOUT 30000   //wait at least 30 seconds
+#define TIMEOUT_MS 30000   //wait at least 30 seconds
 
 #include "agent_outage_classes.h"
 #include "data.h"
@@ -38,23 +38,6 @@ typedef struct _s_osrv_t {
     zhash_t *active_alerts;
 } s_osrv_t;
 
-static s_osrv_t *
-s_osrv_new () {
-    s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
-    assert (self);
-
-    self->verbose = false;
-    self->timeout_ms = TIMEOUT;
-    self->client = mlm_client_new ();
-    assert (self->client);
-    self->assets = data_new ();
-    assert (self->assets);
-    self->active_alerts = zhash_new ();
-    assert (self->active_alerts);
-
-    return self;
-}
-
 static void
 s_osrv_destroy (s_osrv_t **self_p) {
     assert (self_p);
@@ -66,6 +49,25 @@ s_osrv_destroy (s_osrv_t **self_p) {
         free (self);
         *self_p = NULL;
     }
+}
+
+static s_osrv_t *
+s_osrv_new () {
+    s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
+    if (self) {
+        self->client = mlm_client_new ();
+        if (self->client) 
+            self->assets = data_new ();
+        if (self->assets)
+            self->active_alerts = zhash_new ();
+        if (self->active_alerts) {
+            self->verbose = false;
+            self->timeout_ms = TIMEOUT_MS;
+        } else {
+            s_osrv_destroy (&self);
+        }
+    }
+    return self;
 }
 
 static void
