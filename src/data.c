@@ -196,12 +196,11 @@ data_get_dead (data_t *self)
     // list of devices
     zlistx_t *dead = zlistx_new();
 
+    uint64_t now = zclock_time();        
     for (void *expiration =  zhashx_first (self->assets); 
         expiration != NULL;                 
 	    expiration = zhashx_next (self->assets))
     {
-        uint64_t now = zclock_time();        
- 
         if (*(uint64_t*) expiration <= now)
         {   
             void *source = (void*) zhashx_cursor(self->assets);
