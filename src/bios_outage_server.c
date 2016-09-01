@@ -77,7 +77,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
             source,
             state,
             "CRITICAL",
-            "Device does not provide expected data. Is can be offline or not configured.",
+            "Device does not provide expected data. It may be offline or not correctly configured.",
             time (NULL),
             "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
@@ -232,7 +232,7 @@ bios_outage_server (zsock_t *pipe, void *args)
     assert(poller);
 
     zsock_signal (pipe, 0);
-
+    zsys_info ("agent_outage: Started");
     //    poller timeout
     uint64_t now = zclock_mono ();
     uint64_t last_dead_check = now;
@@ -252,7 +252,7 @@ bios_outage_server (zsock_t *pipe, void *args)
         now = zclock_mono ();
         if (zpoller_expired (poller) || (now - last_dead_check) > self->timeout_ms) {
             if (self->verbose)
-                zsys_debug ("poller expired");
+                zsys_debug ("poller expired or 'poll event'");
             zlistx_t *dead_devices = data_get_dead (self->assets);
             if (self->verbose)
                 zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
@@ -330,6 +330,7 @@ bios_outage_server (zsock_t *pipe, void *args)
     zpoller_destroy (&poller);
     // TODO: save/load the state
     s_osrv_destroy (&self);
+    zsys_info ("agent_outage: Ended");
 }
 
 
