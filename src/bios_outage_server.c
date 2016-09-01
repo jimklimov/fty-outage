@@ -317,7 +317,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                     data_put (self->assets, &bmsg);
                 }
                 else
-                if (streq (mlm_client_address (self->client), "_METRICS_UNAVAILABLE")) {
+                if (streq (mlm_client_address (self->client), BIOS_PROTO_STREAM_METRICS_UNAVAILABLE)) {
                     const char* source = bios_proto_element_src (bmsg);
                     s_osrv_resolve_alert (self, source);
                     data_delete (self->assets, source);
