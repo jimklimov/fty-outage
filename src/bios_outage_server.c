@@ -39,7 +39,8 @@ typedef struct _s_osrv_t {
 } s_osrv_t;
 
 static void
-s_osrv_destroy (s_osrv_t **self_p) {
+s_osrv_destroy (s_osrv_t **self_p)
+{
     assert (self_p);
     if (*self_p) {
         s_osrv_t *self = *self_p;
@@ -52,7 +53,8 @@ s_osrv_destroy (s_osrv_t **self_p) {
 }
 
 static s_osrv_t *
-s_osrv_new () {
+s_osrv_new ()
+{
     s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
     if (self) {
         self->client = mlm_client_new ();
@@ -71,13 +73,17 @@ s_osrv_new () {
 }
 
 static void
-s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
+s_osrv_send_alert (s_osrv_t* self, const char* asset, const char* alert_state)
+{
     assert (self);
+    assert (asset);
+    assert (alert_state);
+
     zmsg_t *msg = bios_proto_encode_alert (
-            NULL,
-            "outage",
-            source,
-            state,
+            NULL, // aux
+            "outage", // rule_name
+            asset,
+            alert_state,
             "CRITICAL",
             "Device does not provide expected data. It may be offline or not correctly configured.",
             time (NULL),
@@ -85,8 +91,10 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
         "CRITICAL",
-        source);
-    mlm_client_send (self->client, subject, &msg);
+        asset);
+    int rv = mlm_client_send (self->client, subject, &msg);
+    if ( rv != 0 )
+        zsys_error ("Cannot send alert on '%s' (mlm_cleint_send)", asset);
     zstr_free (&subject);
 }
 
