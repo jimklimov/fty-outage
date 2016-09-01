@@ -62,6 +62,7 @@ int main (int argc, char *argv [])
         zstr_sendx (self, "VERBOSE", NULL);
     zstr_sendx (self, "CONNECT", "ipc://@/malamute", "agent-outage", NULL);
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_METRICS, ".*", NULL);
+    zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_METRICS_UNAVAILABLE, ".*", NULL);
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_METRICS_SENSOR, ".*", NULL);
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_ASSETS, ".*", NULL);
     zstr_sendx (self, "PRODUCER", BIOS_PROTO_STREAM_ALERTS_SYS, NULL);

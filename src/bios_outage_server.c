@@ -25,7 +25,7 @@
 @discuss
 @end
 */
-#define TIMEOUT 30000   //wait at least 30 seconds
+#define TIMEOUT_MS 30000   //wait at least 30 seconds
 
 #include "agent_outage_classes.h"
 #include "data.h"
@@ -37,23 +37,6 @@ typedef struct _s_osrv_t {
     data_t *assets;
     zhash_t *active_alerts;
 } s_osrv_t;
-
-static s_osrv_t *
-s_osrv_new () {
-    s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
-    assert (self);
-
-    self->verbose = false;
-    self->timeout_ms = TIMEOUT;
-    self->client = mlm_client_new ();
-    assert (self->client);
-    self->assets = data_new ();
-    assert (self->assets);
-    self->active_alerts = zhash_new ();
-    assert (self->active_alerts);
-
-    return self;
-}
 
 static void
 s_osrv_destroy (s_osrv_t **self_p) {
@@ -68,6 +51,25 @@ s_osrv_destroy (s_osrv_t **self_p) {
     }
 }
 
+static s_osrv_t *
+s_osrv_new () {
+    s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
+    if (self) {
+        self->client = mlm_client_new ();
+        if (self->client) 
+            self->assets = data_new ();
+        if (self->assets)
+            self->active_alerts = zhash_new ();
+        if (self->active_alerts) {
+            self->verbose = false;
+            self->timeout_ms = TIMEOUT_MS;
+        } else {
+            s_osrv_destroy (&self);
+        }
+    }
+    return self;
+}
+
 static void
 s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
     assert (self);
@@ -77,12 +79,12 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
             source,
             state,
             "CRITICAL",
-            "Device does not provide expected data. Is can be offline or not configured.",
+            "Device does not provide expected data. It may be offline or not correctly configured.",
             time (NULL),
             "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
-        "WARNING",
+        "CRITICAL",
         source);
     mlm_client_send (self->client, subject, &msg);
     zstr_free (&subject);
@@ -232,7 +234,7 @@ bios_outage_server (zsock_t *pipe, void *args)
     assert(poller);
 
     zsock_signal (pipe, 0);
-
+    zsys_info ("agent_outage: Started");
     //    poller timeout
     uint64_t now = zclock_mono ();
     uint64_t last_dead_check = now;
@@ -252,7 +254,7 @@ bios_outage_server (zsock_t *pipe, void *args)
         now = zclock_mono ();
         if (zpoller_expired (poller) || (now - last_dead_check) > self->timeout_ms) {
             if (self->verbose)
-                zsys_debug ("poller expired");
+                zsys_debug ("poller expired or 'poll event'");
             zlistx_t *dead_devices = data_get_dead (self->assets);
             if (self->verbose)
                 zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
@@ -317,7 +319,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                     data_put (self->assets, &bmsg);
                 }
                 else
-                if (streq (mlm_client_address (self->client), "_METRICS_UNAVAILABLE")) {
+                if (streq (mlm_client_address (self->client), BIOS_PROTO_STREAM_METRICS_UNAVAILABLE)) {
                     const char* source = bios_proto_element_src (bmsg);
                     s_osrv_resolve_alert (self, source);
                     data_delete (self->assets, source);
@@ -330,6 +332,7 @@ bios_outage_server (zsock_t *pipe, void *args)
     zpoller_destroy (&poller);
     // TODO: save/load the state
     s_osrv_destroy (&self);
+    zsys_info ("agent_outage: Ended");
 }
 
 
