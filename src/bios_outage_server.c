@@ -72,17 +72,18 @@ s_osrv_new ()
     return self;
 }
 
+// publish 'outage' alert for asset 'source-asset' in state 'alert-state'
 static void
-s_osrv_send_alert (s_osrv_t* self, const char* asset, const char* alert_state)
+s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_state)
 {
     assert (self);
-    assert (asset);
+    assert (source_asset);
     assert (alert_state);
 
     zmsg_t *msg = bios_proto_encode_alert (
             NULL, // aux
             "outage", // rule_name
-            asset,
+            source_asset,
             alert_state,
             "CRITICAL",
             "Device does not provide expected data. It may be offline or not correctly configured.",
@@ -91,22 +92,25 @@ s_osrv_send_alert (s_osrv_t* self, const char* asset, const char* alert_state)
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
         "CRITICAL",
-        asset);
+        source_asset);
     int rv = mlm_client_send (self->client, subject, &msg);
     if ( rv != 0 )
-        zsys_error ("Cannot send alert on '%s' (mlm_cleint_send)", asset);
+        zsys_error ("Cannot send alert on '%s' (mlm_cleint_send)", source_asset);
     zstr_free (&subject);
 }
 
-// resolve alert if sent + remove it from list of active alerts
+// if for asset 'source-asset' the 'outage' alert is tracked
+// * publish alert in RESOLVE state for asset 'source-asset' 
+// * removes alert from list of the active alerts
 static void
-s_osrv_resolve_alert (s_osrv_t* self, const char* source) {
+s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
+{
     assert (self);
-    assert (source);
+    assert (source_asset);
 
-    if (zhash_lookup (self->active_alerts, source)) {
-        s_osrv_send_alert (self, source, "RESOLVED");
-        zhash_delete (self->active_alerts, source);
+    if (zhash_lookup (self->active_alerts, source_asset)) {
+        s_osrv_send_alert (self, source_asset, "RESOLVED");
+        zhash_delete (self->active_alerts, source_asset);
     }
 }
 
