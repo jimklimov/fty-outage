@@ -39,7 +39,8 @@ typedef struct _s_osrv_t {
 } s_osrv_t;
 
 static void
-s_osrv_destroy (s_osrv_t **self_p) {
+s_osrv_destroy (s_osrv_t **self_p)
+{
     assert (self_p);
     if (*self_p) {
         s_osrv_t *self = *self_p;
@@ -52,7 +53,8 @@ s_osrv_destroy (s_osrv_t **self_p) {
 }
 
 static s_osrv_t *
-s_osrv_new () {
+s_osrv_new ()
+{
     s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
     if (self) {
         self->client = mlm_client_new ();
@@ -70,14 +72,19 @@ s_osrv_new () {
     return self;
 }
 
+// publish 'outage' alert for asset 'source-asset' in state 'alert-state'
 static void
-s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
+s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_state)
+{
     assert (self);
+    assert (source_asset);
+    assert (alert_state);
+
     zmsg_t *msg = bios_proto_encode_alert (
-            NULL,
-            "outage",
-            source,
-            state,
+            NULL, // aux
+            "outage", // rule_name
+            source_asset,
+            alert_state,
             "CRITICAL",
             "Device does not provide expected data. It may be offline or not correctly configured.",
             time (NULL),
@@ -85,20 +92,25 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
         "CRITICAL",
-        source);
-    mlm_client_send (self->client, subject, &msg);
+        source_asset);
+    int rv = mlm_client_send (self->client, subject, &msg);
+    if ( rv != 0 )
+        zsys_error ("Cannot send alert on '%s' (mlm_cleint_send)", source_asset);
     zstr_free (&subject);
 }
 
-// resolve alert if sent + remove it from list of active alerts
+// if for asset 'source-asset' the 'outage' alert is tracked
+// * publish alert in RESOLVE state for asset 'source-asset' 
+// * removes alert from list of the active alerts
 static void
-s_osrv_resolve_alert (s_osrv_t* self, const char* source) {
+s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
+{
     assert (self);
-    assert (source);
+    assert (source_asset);
 
-    if (zhash_lookup (self->active_alerts, source)) {
-        s_osrv_send_alert (self, source, "RESOLVED");
-        zhash_delete (self->active_alerts, source);
+    if (zhash_lookup (self->active_alerts, source_asset)) {
+        s_osrv_send_alert (self, source_asset, "RESOLVED");
+        zhash_delete (self->active_alerts, source_asset);
     }
 }
 
@@ -236,8 +248,8 @@ bios_outage_server (zsock_t *pipe, void *args)
     zsock_signal (pipe, 0);
     zsys_info ("agent_outage: Started");
     //    poller timeout
-    uint64_t now = zclock_mono ();
-    uint64_t last_dead_check = now;
+    uint64_t now_ms = zclock_mono ();
+    uint64_t last_dead_check_ms = now_ms;
 
     while (!zsys_interrupted)
     {
@@ -251,10 +263,10 @@ bios_outage_server (zsock_t *pipe, void *args)
         }
 
         // send alerts
-        now = zclock_mono ();
-        if (zpoller_expired (poller) || (now - last_dead_check) > self->timeout_ms) {
+        now_ms = zclock_mono ();
+        if (zpoller_expired (poller) || (now_ms - last_dead_check_ms) > self->timeout_ms) {
             if (self->verbose)
-                zsys_debug ("poller expired or 'poll event'");
+                zsys_debug ("poll event");
             zlistx_t *dead_devices = data_get_dead (self->assets);
             if (self->verbose)
                 zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
@@ -276,7 +288,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                         zsys_debug ("\t\talert already active for source=%s", source);
             }
             zlistx_destroy (&dead_devices);
-            last_dead_check = zclock_mono ();
+            last_dead_check_ms = zclock_mono ();
         }
 
         if (which == pipe) {
