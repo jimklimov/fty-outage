@@ -82,7 +82,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source, const char* state) {
             "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
-        "WARNING",
+        "CRITICAL",
         source);
     mlm_client_send (self->client, subject, &msg);
     zstr_free (&subject);
