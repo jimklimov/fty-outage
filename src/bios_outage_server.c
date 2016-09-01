@@ -248,8 +248,8 @@ bios_outage_server (zsock_t *pipe, void *args)
     zsock_signal (pipe, 0);
     zsys_info ("agent_outage: Started");
     //    poller timeout
-    uint64_t now = zclock_mono ();
-    uint64_t last_dead_check = now;
+    uint64_t now_ms = zclock_mono ();
+    uint64_t last_dead_check_ms = now_ms;
 
     while (!zsys_interrupted)
     {
@@ -263,10 +263,10 @@ bios_outage_server (zsock_t *pipe, void *args)
         }
 
         // send alerts
-        now = zclock_mono ();
-        if (zpoller_expired (poller) || (now - last_dead_check) > self->timeout_ms) {
+        now_ms = zclock_mono ();
+        if (zpoller_expired (poller) || (now_ms - last_dead_check_ms) > self->timeout_ms) {
             if (self->verbose)
-                zsys_debug ("poller expired or 'poll event'");
+                zsys_debug ("poll event");
             zlistx_t *dead_devices = data_get_dead (self->assets);
             if (self->verbose)
                 zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
@@ -288,7 +288,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                         zsys_debug ("\t\talert already active for source=%s", source);
             }
             zlistx_destroy (&dead_devices);
-            last_dead_check = zclock_mono ();
+            last_dead_check_ms = zclock_mono ();
         }
 
         if (which == pipe) {

@@ -34,8 +34,8 @@
 
 struct _data_t {
     bool verbose;
-    zhashx_t *assets;           // asset_name => expires_in_secs
-    uint64_t asset_exiry_sec;   // time when new asset should expire
+    zhashx_t *assets;           // asset_name => expiration time [s]
+    uint64_t asset_expiry_sec;  // time after that a new asset should expire
 };
 
 // put value into hash if not exists - allocates memory for value
@@ -70,7 +70,7 @@ data_new (void)
     assert (self);
     self->verbose = false;
     self -> assets = zhashx_new();
-    self->asset_exiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
+    self->asset_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
     zhashx_set_destructor (self -> assets, s_free);
     assert (self -> assets);
 
@@ -106,7 +106,7 @@ data_destroy (data_t **self_p)
 uint64_t
 data_asset_exiry (data_t* self) {
     assert (self);
-    return self->asset_exiry_sec;
+    return self->asset_expiry_sec;
 }
 
 // ------------------------------------------------------------------------
@@ -114,7 +114,7 @@ data_asset_exiry (data_t* self) {
 void
 data_set_asset_exiry (data_t* self, uint64_t expiry_sec) {
     assert (self);
-    self->asset_exiry_sec = expiry_sec;
+    self->asset_expiry_sec = expiry_sec;
 }
 
 // ------------------------------------------------------------------------
@@ -154,7 +154,7 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     }
     else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
 
-        expiration_time = zclock_time () + (self->asset_exiry_sec * 1000);
+        expiration_time = zclock_time () + (self->asset_expiry_sec * 1000);
         const char* operation = bios_proto_operation (proto);
         const char *source = bios_proto_name (proto);
         if (self->verbose)
@@ -179,7 +179,8 @@ data_put (data_t *self, bios_proto_t  **proto_p)
 // --------------------------------------------------------------------------
 // delete from cache
 void
-data_delete (data_t *self, const char* source) {
+data_delete (data_t *self, const char* source)
+{
     assert (self);
     assert (source);
 
@@ -191,6 +192,7 @@ data_delete (data_t *self, const char* source) {
 zlistx_t *
 data_get_dead (data_t *self)
 {
+    assert (self);
     // list of devices
     zlistx_t *dead = zlistx_new();
 
