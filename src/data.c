@@ -61,31 +61,6 @@ s_free (void **x_p) {
     }
 }
 
-//  -----------------------------------------------------------------------
-//  Create a new data
-data_t *
-data_new (void)
-{
-    data_t *self = (data_t *) zmalloc (sizeof (data_t));
-    assert (self);
-    self->verbose = false;
-    self -> assets = zhashx_new();
-    self->asset_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
-    zhashx_set_destructor (self -> assets, s_free);
-    assert (self -> assets);
-
-    return self;
-}
-
-//  -----------------------------------------------------------------------
-//  Setup as verbose
-void
-data_set_verbose (data_t* self, bool verbose)
-{
-    assert (self);
-    self->verbose = verbose;
-}
-
 //  --------------------------------------------------------------------------
 //  Destroy the data
 void
@@ -100,6 +75,36 @@ data_destroy (data_t **self_p)
         *self_p = NULL;
     }
 }
+
+//  -----------------------------------------------------------------------
+//  Create a new data
+data_t *
+data_new (void)
+{
+    data_t *self = (data_t *) zmalloc (sizeof (data_t));
+    if (self) {
+        self -> assets = zhashx_new();
+        if ( self->assets ) {
+            self->verbose = false;
+            self->asset_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
+            zhashx_set_destructor (self -> assets, s_free);
+        }
+        else 
+            data_destroy (&self);
+    }
+    return self;
+}
+
+//  -----------------------------------------------------------------------
+//  Setup as verbose
+void
+data_set_verbose (data_t* self, bool verbose)
+{
+    assert (self);
+    self->verbose = verbose;
+}
+
+
 
 // ------------------------------------------------------------------------
 // Return asset expiration time in seconds
