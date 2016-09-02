@@ -367,16 +367,22 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (server, "BIND",endpoint, NULL);
 
     // malamute clients
-    mlm_client_t *sender = mlm_client_new();
-    int rv = mlm_client_connect (sender, endpoint, 5000, "sender");
+    mlm_client_t *m_sender = mlm_client_new();
+    int rv = mlm_client_connect (m_sender, endpoint, 5000, "m_sender");
     assert (rv >= 0);
-    rv = mlm_client_set_producer (sender, "METRICS");
+    rv = mlm_client_set_producer (m_sender, "METRICS");
+    assert (rv >= 0);
+    
+    mlm_client_t *a_sender = mlm_client_new();
+    rv = mlm_client_connect (a_sender, endpoint, 5000, "a_sender");
+    assert (rv >= 0);
+    rv = mlm_client_set_producer (a_sender, "ASSETS");
     assert (rv >= 0);
 
     mlm_client_t *consumer = mlm_client_new();
     rv = mlm_client_connect (consumer, endpoint, 5000, "alert-consumer");
     assert (rv >= 0);
-    rv = mlm_client_set_consumer (consumer, "ALERTS", ".*");
+    rv = mlm_client_set_consumer (consumer, "_ALERTS_SYS", ".*");
     assert (rv >= 0);
 
     zactor_t *self = zactor_new (bios_outage_server, (void*) NULL);
@@ -387,9 +393,10 @@ bios_outage_server_test (bool verbose)
         zstr_sendx (self, "VERBOSE", NULL);
     zstr_sendx (self, "CONNECT", endpoint, "outage-actor1", NULL);
     zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "ASSETS", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
-    zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
+    zstr_sendx (self, "PRODUCER", "_ALERTS_SYS", NULL);
     zstr_sendx (self, "TIMEOUT", "1000", NULL);
     zstr_sendx (self, "ASSET-EXPIRY-SEC", "3", NULL);
 
@@ -397,16 +404,23 @@ bios_outage_server_test (bool verbose)
     zclock_sleep (1000);
 
     // test case 01 to send the metric with short TTL
+    zhash_t *asset_aux = zhash_new ();
+    zhash_insert (asset_aux, "type", "device");
+    zhash_insert (asset_aux, "subtype", "ups");
+    zmsg_t *sendmsg = bios_proto_encode_asset (asset_aux, "UPS33", "create", NULL);
+    zhash_destroy (&asset_aux);
+    rv = mlm_client_send (a_sender, "subject",  &sendmsg);
+
     // expected: ACTIVE alert to be sent
-    zmsg_t *sendmsg = bios_proto_encode_metric (
+    sendmsg = bios_proto_encode_metric (
         NULL,
         "dev",
         "UPS33",
         "1",
         "c",
-        0);
+        1);
 
-    rv = mlm_client_send (sender, "subject",  &sendmsg);
+    rv = mlm_client_send (m_sender, "subject",  &sendmsg);
     assert (rv >= 0);
     zclock_sleep (1000);
 
@@ -430,7 +444,7 @@ bios_outage_server_test (bool verbose)
         "c",
         1000);
 
-    rv = mlm_client_send (sender, "subject",  &sendmsg);
+    rv = mlm_client_send (m_sender, "subject",  &sendmsg);
     assert (rv >= 0);
 
     msg = mlm_client_recv (consumer);
@@ -449,7 +463,7 @@ bios_outage_server_test (bool verbose)
         "UPS33",
         BIOS_PROTO_ASSET_OP_DELETE,
         NULL);
-    rv = mlm_client_send (sender, "subject",  &sendmsg);
+    rv = mlm_client_send (m_sender, "subject",  &sendmsg);
     assert (rv >= 0);
 
     // test case 03: add new asset device, wait expiry time and check the alert
@@ -463,7 +477,7 @@ bios_outage_server_test (bool verbose)
         BIOS_PROTO_ASSET_OP_CREATE,
         NULL);
     zhash_destroy (&aux);
-    rv = mlm_client_send (sender, "UPS42",  &sendmsg);
+    rv = mlm_client_send (m_sender, "UPS42",  &sendmsg);
     assert (rv >= 0);
 
     msg = mlm_client_recv (consumer);
@@ -487,7 +501,7 @@ bios_outage_server_test (bool verbose)
         BIOS_PROTO_ASSET_OP_UPDATE,
         NULL);
     zhash_destroy (&aux);
-    rv = mlm_client_send (sender, "UPS42",  &sendmsg);
+    rv = mlm_client_send (m_sender, "UPS42",  &sendmsg);
     assert (rv >= 0);
 
     msg = mlm_client_recv (consumer);
@@ -501,7 +515,8 @@ bios_outage_server_test (bool verbose)
     bios_proto_destroy (&bmsg);
 
     zactor_destroy(&self);
-    mlm_client_destroy (&sender);
+    mlm_client_destroy (&m_sender);
+    mlm_client_destroy (&a_sender);
     mlm_client_destroy (&consumer);
     zactor_destroy (&server);
     
