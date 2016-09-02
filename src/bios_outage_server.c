@@ -207,7 +207,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         char *timeout = zmsg_popstr(message);
 
         if (timeout){
-            data_set_asset_exiry (self->assets, atol (timeout));
+            data_set_asset_expiry (self->assets, atol (timeout));
             if (self->verbose)
                 zsys_debug ("outage_actor: ASSET-EXPIRY-SEC: \"%s\"/%"PRIu64, timeout, atol (timeout));
         }
@@ -223,7 +223,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
 	else {
         zsys_error ("outage_actor: Unknown actor command: %s.\n", command);
 	}
-            
+
     zstr_free (&command);
     zmsg_destroy (message_p);
     return 0;
@@ -312,6 +312,17 @@ bios_outage_server (zsock_t *pipe, void *args)
                 break;
 
             if (!is_bios_proto(message)) {
+                if (streq (mlm_client_address (self->client), BIOS_PROTO_STREAM_METRICS_UNAVAILABLE)) {
+                    char *foo = zmsg_popstr (message);
+                    if ( foo && streq (foo, "METRICUNAVAILABLE")) {
+                        zstr_free (&foo);
+                        foo = zmsg_popstr (message); // topic in form aaaa@bbb
+                        const char* source = strstr (foo, "@") + 1;
+                        s_osrv_resolve_alert (self, source);
+                        data_delete (self->assets, source);
+                    }
+                    zstr_free (&foo);
+                }
                 zmsg_destroy(&message);
                 continue;
             }
@@ -322,23 +333,16 @@ bios_outage_server (zsock_t *pipe, void *args)
                 if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
                     const char* source = bios_proto_element_src (bmsg);
                     s_osrv_resolve_alert (self, source);
-                    data_put (self->assets, &bmsg);
+                    data_put (self->assets, bmsg);
                 }
                 else
                 if (bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
                     const char* source = bios_proto_name (bmsg);
                     s_osrv_resolve_alert (self, source);
-                    data_put (self->assets, &bmsg);
-                }
-                else
-                if (streq (mlm_client_address (self->client), BIOS_PROTO_STREAM_METRICS_UNAVAILABLE)) {
-                    const char* source = bios_proto_element_src (bmsg);
-                    s_osrv_resolve_alert (self, source);
-                    data_delete (self->assets, source);
+                    data_put (self->assets, bmsg);
                 }
             }
             bios_proto_destroy (&bmsg);
-            continue;
         }
     }
     zpoller_destroy (&poller);

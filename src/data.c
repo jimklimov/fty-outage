@@ -61,31 +61,6 @@ s_free (void **x_p) {
     }
 }
 
-//  -----------------------------------------------------------------------
-//  Create a new data
-data_t *
-data_new (void)
-{
-    data_t *self = (data_t *) zmalloc (sizeof (data_t));
-    assert (self);
-    self->verbose = false;
-    self -> assets = zhashx_new();
-    self->asset_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
-    zhashx_set_destructor (self -> assets, s_free);
-    assert (self -> assets);
-
-    return self;
-}
-
-//  -----------------------------------------------------------------------
-//  Setup as verbose
-void
-data_set_verbose (data_t* self, bool verbose)
-{
-    assert (self);
-    self->verbose = verbose;
-}
-
 //  --------------------------------------------------------------------------
 //  Destroy the data
 void
@@ -101,10 +76,39 @@ data_destroy (data_t **self_p)
     }
 }
 
+//  -----------------------------------------------------------------------
+//  Create a new data
+data_t *
+data_new (void)
+{
+    data_t *self = (data_t *) zmalloc (sizeof (data_t));
+    if (self) {
+        self -> assets = zhashx_new();
+        if ( self->assets ) {
+            self->verbose = false;
+            self->asset_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
+            zhashx_set_destructor (self -> assets, s_free);
+        }
+        else 
+            data_destroy (&self);
+    }
+    return self;
+}
+
+//  -----------------------------------------------------------------------
+//  Setup as verbose
+void
+data_set_verbose (data_t* self, bool verbose)
+{
+    assert (self);
+    self->verbose = verbose;
+}
+
 // ------------------------------------------------------------------------
 // Return asset expiration time in seconds
 uint64_t
-data_asset_exiry (data_t* self) {
+data_asset_expiry (data_t* self)
+{
     assert (self);
     return self->asset_expiry_sec;
 }
@@ -112,7 +116,8 @@ data_asset_exiry (data_t* self) {
 // ------------------------------------------------------------------------
 // Set new asset expiration time
 void
-data_set_asset_exiry (data_t* self, uint64_t expiry_sec) {
+data_set_asset_expiry (data_t* self, uint64_t expiry_sec)
+{
     assert (self);
     self->asset_expiry_sec = expiry_sec;
 }
@@ -120,12 +125,9 @@ data_set_asset_exiry (data_t* self, uint64_t expiry_sec) {
 // ------------------------------------------------------------------------
 // put data 
 void
-data_put (data_t *self, bios_proto_t  **proto_p) 
+data_put (data_t *self, bios_proto_t  *proto) 
 {
     assert (self);
-    assert (proto_p);
-    
-    bios_proto_t *proto = *proto_p;
     assert (proto);
 
     uint64_t expiration_time = -1;
@@ -174,7 +176,6 @@ data_put (data_t *self, bios_proto_t  **proto_p)
                 s_insert (self->assets, source, expiration_time);
         }
     }
-    bios_proto_destroy(proto_p);
 }
 // --------------------------------------------------------------------------
 // delete from cache
@@ -254,20 +255,22 @@ data_test (bool verbose)
     assert(data);
 
     // get/set test
-    assert (data_asset_exiry (data) == DEFAULT_ASSET_EXPIRATION_TIME_SEC);
-    data_set_asset_exiry (data, 42);
-    assert (data_asset_exiry (data) == 42);
-    data_set_asset_exiry (data, DEFAULT_ASSET_EXPIRATION_TIME_SEC);
+    assert (data_asset_expiry (data) == DEFAULT_ASSET_EXPIRATION_TIME_SEC);
+    data_set_asset_expiry (data, 42);
+    assert (data_asset_expiry (data) == 42);
+    data_set_asset_expiry (data, DEFAULT_ASSET_EXPIRATION_TIME_SEC);
     
     // create new metric UPS4 - exp NOK
     zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
     bios_proto_t *proto_n = bios_proto_decode (&met_n);
-    data_put(data, &proto_n);
+    data_put(data, proto_n);
+    bios_proto_destroy (&proto_n);
     
     // create new metric UPS3 - exp NOT OK
     met_n = bios_proto_encode_metric (aux, "device", "UPS3", "100", "C", 1);
     proto_n = bios_proto_decode (&met_n);
-    data_put(data, &proto_n);
+    data_put(data, proto_n);
+    bios_proto_destroy (&proto_n);
                
     // give me dead devices
     zlistx_t *list = data_get_dead(data);
@@ -281,7 +284,8 @@ data_test (bool verbose)
     zhash_update(aux,"time" , "90000000000000");
     zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 2);
     bios_proto_t *proto_u = bios_proto_decode (&met_u);
-    data_put(data, &proto_u);
+    data_put(data, proto_u);
+    bios_proto_destroy (&proto_n);
 
     // give me dead devices
     list = data_get_dead(data);
@@ -297,13 +301,14 @@ data_test (bool verbose)
     zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "epdu");
     zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", BIOS_PROTO_ASSET_OP_CREATE, NULL);
     bios_proto_t* bmsg = bios_proto_decode (&msg);
-    data_put (data, &bmsg);
+    data_put (data, bmsg);
+    bios_proto_destroy (&bmsg);
 
     assert (zhashx_lookup (data->assets, "PDU1"));
     int64_t diff = (int64_t)zhashx_get_expiration_test (data, "PDU1") - zclock_time ();
     if (verbose)
         zsys_debug ("diff=%"PRIi64, diff);
-    assert (diff > 6000 && diff <= (data_asset_exiry (data) * 1000));
+    assert (diff > 6000 && diff <= (data_asset_expiry (data) * 1000));
     // TODO: test it more
 
      

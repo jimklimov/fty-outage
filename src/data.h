@@ -37,35 +37,33 @@ AGENT_OUTAGE_EXPORT data_t *
 AGENT_OUTAGE_EXPORT void
     data_destroy (data_t **self_p);
 
-// Return asset expiration time in seconds
+//  Return default number of seconds in that newly added asset would expire
 AGENT_OUTAGE_EXPORT uint64_t
-data_asset_exiry (data_t* self);
+    data_asset_expiry (data_t* self);
 
-// Set new asset expiration time in seconds
+//  Set expiration time in seconds for newly added asset
 AGENT_OUTAGE_EXPORT void
-    data_set_asset_exiry (data_t* self, uint64_t expiry_sec);
+    data_set_asset_expiry (data_t* self, uint64_t expiry_sec);
 
-// Put data - calculates metric expiration time for each asset  
+//  calculates metric expiration time for each asset  
 AGENT_OUTAGE_EXPORT void
-    data_put (data_t *self, bios_proto_t  **proto_p);
+    data_put (data_t *self, bios_proto_t  *proto);
 
-// delete from cache
+//  delete from cache
 AGENT_OUTAGE_EXPORT void
     data_delete (data_t *self, const char* source);
 
-// Returns list of nonresponding devices, zlistx entries are refereces
+//  Returns list of nonresponding devices, zlistx entries are refereces
 AGENT_OUTAGE_EXPORT zlistx_t *
     data_get_dead (data_t *self);
 
 //  Setup as verbose
-void
+AGENT_OUTAGE_EXPORT void
     data_set_verbose (data_t* self, bool verbose);
 
 //  Self test of this class
 AGENT_OUTAGE_EXPORT void
     data_test (bool verbose);
-
-
 
 //  @end
 
