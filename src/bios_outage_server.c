@@ -207,7 +207,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         char *timeout = zmsg_popstr(message);
 
         if (timeout){
-            data_set_asset_expiry (self->assets, atol (timeout));
+            data_set_default_expiry (self->assets, atol (timeout));
             if (self->verbose)
                 zsys_debug ("outage_actor: ASSET-EXPIRY-SEC: \"%s\"/%"PRIu64, timeout, atol (timeout));
         }
@@ -388,8 +388,7 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (self, "CONNECT", endpoint, "outage-actor1", NULL);
     zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
     zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
-    //TODO: react on those messages to resolve alerts
-    //zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
     zstr_sendx (self, "PRODUCER", "ALERTS", NULL);
     zstr_sendx (self, "TIMEOUT", "1000", NULL);
     zstr_sendx (self, "ASSET-EXPIRY-SEC", "3", NULL);

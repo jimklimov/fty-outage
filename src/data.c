@@ -31,18 +31,17 @@
 #define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60
 
 //  Structure of our class
-
 typedef struct _expiration_t {
-    uint64_t ttl; // [s]
-    uint64_t expiration_time; // [s]
+    uint64_t ttl_sec; // [s] minimal ttl seen for some asset
+    uint64_t last_time_seen_sec; // [s] time when  some metrics were seen for this asset
 } expiration_t;
 
 static expiration_t*
-expiration_new (void)
+expiration_new (uint64_t default_expiry_sec)
 {
     expiration_t *self = (expiration_t *) zmalloc (sizeof (expiration_t));
     if (self) {
-        self->ttl = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
+        self->ttl_sec = default_expiry_sec;
     }
     return self;
 }
@@ -58,34 +57,47 @@ expiration_destroy (expiration_t **self_p)
     }
 }
 
+// set up new expected expiration time, given last seen time
+// this function can only prolong exiration_time
+static void
+expiration_update (expiration_t *self, uint64_t new_time_seen_sec, bool verbose)
+{
+    // this will ensure, that we will not have 'experiation' time moving backwards!
+    // Situation: at 03:33 metric with 24h average comes with 'time' = 00:00
+    // ttl is 5 minutes -> new expiration date would be 00:05 BUT now already 3:33 !!
+    // So we will create false alert!
+    // This 'if' is a guard for this situation!
+    if ( new_time_seen_sec > self->last_time_seen_sec )
+        self->last_time_seen_sec = new_time_seen_sec;
+    if ( verbose )
+        zsys_debug ("last_seen_time[s]: %" PRIu64, self->last_time_seen_sec);
+}
+
+static void
+expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl, bool verbose)
+{
+    // ATTENTION: if minimum ttl for some asset is greater than DEFAULT_ASSET_EXPIRATION_TIME_SEC
+    // it will be sending alerts every DEFAULT_ASSET_EXPIRATION_TIME_SEC
+
+    // logic: we are looking for the minimum ttl
+    if ( self->ttl_sec > proposed_ttl ) {
+        self->ttl_sec = proposed_ttl;
+    }
+    if ( verbose )
+        zsys_debug ("ttl[s]: %" PRIu64, self->ttl_sec);
+}
+
+static uint64_t
+experiation_get (expiration_t *self)
+{
+    return self->last_time_seen_sec + self->ttl_sec * 2;
+}
+
 struct _data_t {
     bool verbose;
     zhashx_t *assets;           // asset_name => expiration time [s]
-    uint64_t asset_expiry_sec;  // time after that a new asset should expire
+    uint64_t default_expiry_sec; // [s] default time for the asset, in what asset would be considered as not responding
 };
-
-// put value into hash if not exists - allocates memory for value
-static int
-s_insert (zhashx_t *hash, const char* key, uint64_t value) {
-    void *rv = zhashx_lookup (hash, key);
-    if (!rv) {
-        uint64_t *mem = (uint64_t*) malloc (sizeof (uint64_t));
-        assert (mem);
-        *mem = value;
-        return zhashx_insert (hash, key, (void*) mem);
-    }
-    return -1;
-}
-
-// ------------------------------------------------------------------------
-// destructor for zhashx items
-static void
-s_free (void **x_p) {
-    if (*x_p) {
-        free ((uint32_t*) *x_p);
-        *x_p = NULL;
-    }
-}
 
 //  --------------------------------------------------------------------------
 //  Destroy the data
@@ -95,7 +107,6 @@ data_destroy (data_t **self_p)
     assert (self_p);
     if (*self_p) {
         data_t *self = *self_p;
-
         zhashx_destroy(&self -> assets);
         free (self);
         *self_p = NULL;
@@ -112,8 +123,8 @@ data_new (void)
         self -> assets = zhashx_new();
         if ( self->assets ) {
             self->verbose = false;
-            self->asset_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
-            zhashx_set_destructor (self -> assets, s_free);
+            self->default_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC; 
+            zhashx_set_destructor (self -> assets,  (zhashx_destructor_fn *) expiration_destroy);
         }
         else 
             data_destroy (&self);
@@ -130,75 +141,79 @@ data_set_verbose (data_t* self, bool verbose)
     self->verbose = verbose;
 }
 
-// ------------------------------------------------------------------------
-// Return asset expiration time in seconds
+//  ------------------------------------------------------------------------
+//  Return default number of seconds in that newly added asset would expire
 uint64_t
-data_asset_expiry (data_t* self)
+data_default_expiry (data_t* self)
 {
     assert (self);
-    return self->asset_expiry_sec;
+    return self->default_expiry_sec;
 }
 
-// ------------------------------------------------------------------------
-// Set new asset expiration time
+//  ------------------------------------------------------------------------
+//  Set default number of seconds in that newly added asset would expire
 void
-data_set_asset_expiry (data_t* self, uint64_t expiry_sec)
+data_set_default_expiry (data_t* self, uint64_t expiry_sec)
 {
     assert (self);
-    self->asset_expiry_sec = expiry_sec;
+    self->default_expiry_sec = expiry_sec;
 }
 
-// ------------------------------------------------------------------------
-// put data 
+//  ------------------------------------------------------------------------
+//  put data 
 void
 data_put (data_t *self, bios_proto_t *proto) 
 {
     assert (self);
     assert (proto);
 
-    uint64_t expiration_time = -1;
-
     if (bios_proto_id (proto) == BIOS_PROTO_METRIC) {
 
-        uint64_t timestamp = bios_proto_aux_number (proto, "time", zclock_time());
-        const char *source = bios_proto_element_src (proto);
-        uint64_t ttl = bios_proto_ttl (proto);
+        const char *asset_name = bios_proto_element_src (proto);
 
-        expiration_time = timestamp + 2*ttl;
-        if (self->verbose)
-            zsys_debug ("metric: source=%s, expiration_time=%"PRIu64, source, expiration_time);
-
-        // update cache
-        void *rv = zhashx_lookup (self->assets, source);
-        if (!rv)
-            s_insert (self->assets, source, expiration_time);
-        else
-        {
-            uint64_t *expiration_p = (uint64_t*) rv;
-            *expiration_p = expiration_time;
+        expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name);
+        if ( e != NULL ) {
+            // we know information about this asset
+            
+            // try to update ttl
+            uint64_t ttl = bios_proto_ttl (proto);
+            expiration_update_ttl (e, ttl, self->verbose);
+            // need to compute new expiration time
+            uint64_t now_sec = zclock_time () / 1000 ;
+            uint64_t timestamp = bios_proto_aux_number (proto, "time", now_sec);
+            zsys_debug ("timestamp=%" PRIu64, timestamp);
+            expiration_update (e, timestamp, self->verbose);
         }
-    
+        // if asset is not known -> we are not interested!
     }
     else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
 
-        expiration_time = zclock_time () + (self->asset_expiry_sec * 1000);
-        const char* operation = bios_proto_operation (proto);
-        const char *source = bios_proto_name (proto);
+        const char *operation = bios_proto_operation (proto);
+        const char *asset_name = bios_proto_name (proto);
         if (self->verbose)
-            zsys_debug ("asset: source=%s, operation=%s, zclock_time=%"PRIi64 ", expiration_time=%"PRIu64, source, operation, zclock_time (), expiration_time);
+            zsys_debug ("asset: name=%s, operation=%s", asset_name, operation);
 
         // remove asset from cache
-        if (  streq (operation, BIOS_PROTO_ASSET_OP_DELETE)
-            ||streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired"))
-            zhashx_delete (self->assets, source);
-        // other asset operations - add ups, epdu or sensors to the cache if not present
+        if (    streq (operation, BIOS_PROTO_ASSET_OP_DELETE)
+             || streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
+        {
+            data_delete (self, asset_name);
+        }
         else
-        if (   streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" )) {
+        // other asset operations - add ups, epdu or sensors to the cache if not present
+        if ( streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" ) ) {
             const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
             if (   streq (sub_type, "ups")
                 || streq (sub_type, "epdu")
                 || streq (sub_type, "sensor"))
-                s_insert (self->assets, source, expiration_time);
+            {
+                expiration_t *e = expiration_new (self->default_expiry_sec);
+                uint64_t now_sec = zclock_time() / 1000;
+                expiration_update (e, now_sec, self->verbose);
+                if ( self->verbose )
+                    zsys_debug ("asset: name = '%s', now = %" PRIu64 "s, expires_at=%" PRIu64 "s", asset_name, now_sec, experiation_get (e));
+                zhashx_insert (self->assets, asset_name, e);
+            }
         }
     }
 }
@@ -222,15 +237,21 @@ data_get_dead (data_t *self)
     // list of devices
     zlistx_t *dead = zlistx_new();
 
-    uint64_t now = zclock_time();        
-    for (void *expiration =  zhashx_first (self->assets); 
-        expiration != NULL;                 
-	    expiration = zhashx_next (self->assets))
+    uint64_t now_sec = zclock_time() / 1000;        
+    if ( self->verbose ) {
+        zsys_debug ("now=%" PRIu64 "s", now_sec);
+    }
+    for (expiration_t *e =  (expiration_t *) zhashx_first (self->assets); 
+        e != NULL;                 
+	    e = (expiration_t *) zhashx_next (self->assets))
     {
-        if (*(uint64_t*) expiration <= now)
+        void *asset_name = (void*) zhashx_cursor(self->assets);
+        if ( self->verbose ) {
+            zsys_debug ("asset: name=%s, ttl=%" PRIu64 ", expires_at=%" PRIu64, asset_name, e->ttl_sec, experiation_get (e));
+        }
+        if ( experiation_get (e) <= now_sec)
         {   
-            void *source = (void*) zhashx_cursor(self->assets);
-            assert(zlistx_add_start (dead, source));
+            assert(zlistx_add_start (dead, asset_name));
         }
     }    
     
@@ -243,8 +264,8 @@ uint64_t
 zhashx_get_expiration_test (data_t *self, char *source)
 {
     assert(self);
-    uint64_t *expiration = (uint64_t*) zhashx_lookup (self->assets, source);
-    return *expiration;
+    expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, source);
+    return experiation_get (e);
 }   
 
 // print content of zlistx
@@ -257,7 +278,6 @@ zlistx_print_dead (zlistx_t *self) {
     {
         zsys_debug ("\t%s",(char *) it);
     }
-
 }
 
 //  --------------------------------------------------------------------------
@@ -268,9 +288,9 @@ data_test (bool verbose)
 {
     printf (" * data: \n");
 
-    expiration_t *e = expiration_new();
+    expiration_t *e = expiration_new(10);
     expiration_destroy (&e);
-    //  aux data for matric - var_name | msg issued
+    //  aux data for metric - var_name | msg issued
     zhash_t *aux = zhash_new();
 
     zhash_update(aux,"key1", "val1");
@@ -279,17 +299,37 @@ data_test (bool verbose)
     
     // key | expiration (t+2*ttl)
     data_t *data = data_new ();
+    data_set_verbose (data, verbose);
     assert(data);
 
     // get/set test
-    assert (data_asset_expiry (data) == DEFAULT_ASSET_EXPIRATION_TIME_SEC);
-    data_set_asset_expiry (data, 42);
-    assert (data_asset_expiry (data) == 42);
-    data_set_asset_expiry (data, DEFAULT_ASSET_EXPIRATION_TIME_SEC);
+    assert (data_default_expiry (data) == DEFAULT_ASSET_EXPIRATION_TIME_SEC);
+    data_set_default_expiry (data, 42);
+    assert (data_default_expiry (data) == 42);
+    data_set_default_expiry (data, 2);
     
+    // create asset first
+    zhash_t *asset_aux = zhash_new ();
+    zhash_insert (asset_aux, "type", "device");
+    zhash_insert (asset_aux, "subtype", "ups");
+    zmsg_t *asset = bios_proto_encode_asset (asset_aux, "UPS4", "create", NULL);
+    bios_proto_t *proto_n = bios_proto_decode (&asset);
+    data_put(data, proto_n);
+    bios_proto_destroy (&proto_n);
+    zhash_destroy (&asset_aux);
+
+    asset_aux = zhash_new ();
+    zhash_insert (asset_aux, "type", "device");
+    zhash_insert (asset_aux, "subtype", "ups");
+    asset = bios_proto_encode_asset (asset_aux, "UPS3", "create", NULL);
+    proto_n = bios_proto_decode (&asset);
+    data_put(data, proto_n);
+    bios_proto_destroy (&proto_n);
+    zhash_destroy (&asset_aux);
+
     // create new metric UPS4 - exp NOK
-    zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
-    bios_proto_t *proto_n = bios_proto_decode (&met_n);
+    zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 3);
+    proto_n = bios_proto_decode (&met_n);
     data_put(data, proto_n);
     bios_proto_destroy (&proto_n);
     
@@ -298,7 +338,7 @@ data_test (bool verbose)
     proto_n = bios_proto_decode (&met_n);
     data_put(data, proto_n);
     bios_proto_destroy (&proto_n);
-               
+    zclock_sleep (5000);
     // give me dead devices
     zlistx_t *list = data_get_dead(data);
     if (verbose)
@@ -332,12 +372,12 @@ data_test (bool verbose)
     bios_proto_destroy (&bmsg);
 
     assert (zhashx_lookup (data->assets, "PDU1"));
-    int64_t diff = (int64_t)zhashx_get_expiration_test (data, "PDU1") - zclock_time ();
+    uint64_t now_sec = zclock_time() / 1000;
+    uint64_t diff = zhashx_get_expiration_test (data, "PDU1") - now_sec;
     if (verbose)
         zsys_debug ("diff=%"PRIi64, diff);
-    assert (diff > 6000 && diff <= (data_asset_expiry (data) * 1000));
+    assert ( diff <= (data_default_expiry (data) * 2));
     // TODO: test it more
-
      
     zlistx_destroy(&list);
     bios_proto_destroy(&proto_n);
