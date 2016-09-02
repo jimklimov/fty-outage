@@ -39,11 +39,11 @@ AGENT_OUTAGE_EXPORT void
 
 // Return asset expiration time in seconds
 AGENT_OUTAGE_EXPORT uint64_t
-data_asset_exiry (data_t* self);
+    data_asset_expiry (data_t* self);
 
-// Set new asset expiration time in seconds
+// Set expiration time in seconds for newly added asset
 AGENT_OUTAGE_EXPORT void
-    data_set_asset_exiry (data_t* self, uint64_t expiry_sec);
+    data_set_asset_expiry (data_t* self, uint64_t expiry_sec);
 
 // Put data - calculates metric expiration time for each asset  
 AGENT_OUTAGE_EXPORT void

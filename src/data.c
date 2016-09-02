@@ -104,12 +104,11 @@ data_set_verbose (data_t* self, bool verbose)
     self->verbose = verbose;
 }
 
-
-
 // ------------------------------------------------------------------------
 // Return asset expiration time in seconds
 uint64_t
-data_asset_exiry (data_t* self) {
+data_asset_expiry (data_t* self)
+{
     assert (self);
     return self->asset_expiry_sec;
 }
@@ -117,7 +116,7 @@ data_asset_exiry (data_t* self) {
 // ------------------------------------------------------------------------
 // Set new asset expiration time
 void
-data_set_asset_exiry (data_t* self, uint64_t expiry_sec) {
+data_set_asset_expiry (data_t* self, uint64_t expiry_sec) {
     assert (self);
     self->asset_expiry_sec = expiry_sec;
 }
@@ -259,10 +258,10 @@ data_test (bool verbose)
     assert(data);
 
     // get/set test
-    assert (data_asset_exiry (data) == DEFAULT_ASSET_EXPIRATION_TIME_SEC);
-    data_set_asset_exiry (data, 42);
-    assert (data_asset_exiry (data) == 42);
-    data_set_asset_exiry (data, DEFAULT_ASSET_EXPIRATION_TIME_SEC);
+    assert (data_asset_expiry (data) == DEFAULT_ASSET_EXPIRATION_TIME_SEC);
+    data_set_asset_expiry (data, 42);
+    assert (data_asset_expiry (data) == 42);
+    data_set_asset_expiry (data, DEFAULT_ASSET_EXPIRATION_TIME_SEC);
     
     // create new metric UPS4 - exp NOK
     zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
@@ -308,7 +307,7 @@ data_test (bool verbose)
     int64_t diff = (int64_t)zhashx_get_expiration_test (data, "PDU1") - zclock_time ();
     if (verbose)
         zsys_debug ("diff=%"PRIi64, diff);
-    assert (diff > 6000 && diff <= (data_asset_exiry (data) * 1000));
+    assert (diff > 6000 && diff <= (data_asset_expiry (data) * 1000));
     // TODO: test it more
 
      

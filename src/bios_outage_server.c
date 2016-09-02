@@ -207,7 +207,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         char *timeout = zmsg_popstr(message);
 
         if (timeout){
-            data_set_asset_exiry (self->assets, atol (timeout));
+            data_set_asset_expiry (self->assets, atol (timeout));
             if (self->verbose)
                 zsys_debug ("outage_actor: ASSET-EXPIRY-SEC: \"%s\"/%"PRIu64, timeout, atol (timeout));
         }
@@ -223,7 +223,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
 	else {
         zsys_error ("outage_actor: Unknown actor command: %s.\n", command);
 	}
-            
+
     zstr_free (&command);
     zmsg_destroy (message_p);
     return 0;
