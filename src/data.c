@@ -32,6 +32,32 @@
 
 //  Structure of our class
 
+typedef struct _expiration_t {
+    uint64_t ttl; // [s]
+    uint64_t expiration_time; // [s]
+} expiration_t;
+
+static expiration_t*
+expiration_new (void)
+{
+    expiration_t *self = (expiration_t *) zmalloc (sizeof (expiration_t));
+    if (self) {
+        self->ttl = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
+    }
+    return self;
+}
+
+static void
+expiration_destroy (expiration_t **self_p)
+{
+    assert (self_p);
+    if (*self_p) {
+        expiration_t *self = *self_p;
+        free (self);
+        *self_p = NULL;
+    }
+}
+
 struct _data_t {
     bool verbose;
     zhashx_t *assets;           // asset_name => expiration time [s]
@@ -125,7 +151,7 @@ data_set_asset_expiry (data_t* self, uint64_t expiry_sec)
 // ------------------------------------------------------------------------
 // put data 
 void
-data_put (data_t *self, bios_proto_t  *proto) 
+data_put (data_t *self, bios_proto_t *proto) 
 {
     assert (self);
     assert (proto);
@@ -138,7 +164,6 @@ data_put (data_t *self, bios_proto_t  *proto)
         const char *source = bios_proto_element_src (proto);
         uint64_t ttl = bios_proto_ttl (proto);
 
-        // getting timestamp from metrics
         expiration_time = timestamp + 2*ttl;
         if (self->verbose)
             zsys_debug ("metric: source=%s, expiration_time=%"PRIu64, source, expiration_time);
@@ -243,6 +268,8 @@ data_test (bool verbose)
 {
     printf (" * data: \n");
 
+    expiration_t *e = expiration_new();
+    expiration_destroy (&e);
     //  aux data for matric - var_name | msg issued
     zhash_t *aux = zhash_new();
 
