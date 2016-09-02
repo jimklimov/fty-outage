@@ -333,13 +333,13 @@ bios_outage_server (zsock_t *pipe, void *args)
                 if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
                     const char* source = bios_proto_element_src (bmsg);
                     s_osrv_resolve_alert (self, source);
-                    data_put (self->assets, &bmsg);
+                    data_put (self->assets, bmsg);
                 }
                 else
                 if (bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
                     const char* source = bios_proto_name (bmsg);
                     s_osrv_resolve_alert (self, source);
-                    data_put (self->assets, &bmsg);
+                    data_put (self->assets, bmsg);
                 }
             }
             bios_proto_destroy (&bmsg);
