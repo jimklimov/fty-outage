@@ -331,9 +331,16 @@ bios_outage_server (zsock_t *pipe, void *args)
             if (bmsg) {
                 // resolve sent alert
                 if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
-                    const char* source = bios_proto_element_src (bmsg);
-                    s_osrv_resolve_alert (self, source);
-                    data_put (self->assets, bmsg);
+                    const char *is_computed = bios_proto_aux_string (bmsg, "x-cm-count", NULL);
+                    if ( !is_computed ) {
+                        const char *source = bios_proto_element_src (bmsg);
+                        s_osrv_resolve_alert (self, source);
+                        data_put (self->assets, bmsg);
+                    }
+                    else {
+                        // intentionally left empty
+                        // so it is metric from agent-cm -> it is not comming from the dvice itself ->ignore it
+                    }
                 }
                 else
                 if (bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
