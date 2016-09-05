@@ -28,7 +28,9 @@
 
 #include "agent_outage_classes.h"
 
-#define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60
+// it is used as TTL, but in formula we are waiting for ttl*2 ->
+// so if we here would have 15 minutes-> the first alert will come in 30 minutes
+#define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60/2
 
 //  Structure of our class
 typedef struct _expiration_t {
