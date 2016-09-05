@@ -28,7 +28,9 @@
 
 #include "agent_outage_classes.h"
 
-#define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60
+// it is used as TTL, but in formula we are waiting for ttl*2 ->
+// so if we here would have 15 minutes-> the first alert will come in 30 minutes
+#define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60/2
 
 //  Structure of our class
 typedef struct _expiration_t {
@@ -207,12 +209,20 @@ data_put (data_t *self, bios_proto_t *proto)
                 || streq (sub_type, "epdu")
                 || streq (sub_type, "sensor"))
             {
-                expiration_t *e = expiration_new (self->default_expiry_sec);
-                uint64_t now_sec = zclock_time() / 1000;
-                expiration_update (e, now_sec, self->verbose);
-                if ( self->verbose )
-                    zsys_debug ("asset: name = '%s', now = %" PRIu64 "s, expires_at=%" PRIu64 "s", asset_name, now_sec, experiation_get (e));
-                zhashx_insert (self->assets, asset_name, e);
+                // this asset is not known yet -> add it to the cache
+                expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name );
+                if ( e == NULL ) {
+                    e = expiration_new (self->default_expiry_sec);
+                    uint64_t now_sec = zclock_time() / 1000;
+                    expiration_update (e, now_sec, self->verbose);
+                    if ( self->verbose )
+                        zsys_debug ("asset: ADDED: name = '%s', now = %" PRIu64 "s, expires_at=%" PRIu64 "s", asset_name, now_sec, experiation_get (e));
+                    zhashx_insert (self->assets, asset_name, e);
+                }
+                else {
+                    // intentionally left empty
+                    // So, if we already knew this asset -> nothing to do
+                }
             }
         }
     }
