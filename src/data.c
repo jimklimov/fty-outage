@@ -36,14 +36,18 @@
 typedef struct _expiration_t {
     uint64_t ttl_sec; // [s] minimal ttl seen for some asset
     uint64_t last_time_seen_sec; // [s] time when  some metrics were seen for this asset
+    bios_proto_t *msg;
 } expiration_t;
 
 static expiration_t*
-expiration_new (uint64_t default_expiry_sec)
+expiration_new (uint64_t default_expiry_sec, bios_proto_t **msg_p)
 {
+    assert (msg_p);
     expiration_t *self = (expiration_t *) zmalloc (sizeof (expiration_t));
     if (self) {
         self->ttl_sec = default_expiry_sec;
+        self->msg = *msg_p;
+        *msg_p = NULL;
     }
     return self;
 }
@@ -54,6 +58,7 @@ expiration_destroy (expiration_t **self_p)
     assert (self_p);
     if (*self_p) {
         expiration_t *self = *self_p;
+        bios_proto_destroy (&self->msg);
         free (self);
         *self_p = NULL;
     }
@@ -164,10 +169,14 @@ data_set_default_expiry (data_t* self, uint64_t expiry_sec)
 //  ------------------------------------------------------------------------
 //  put data 
 void
-data_put (data_t *self, bios_proto_t *proto) 
+data_put (data_t *self, bios_proto_t **proto_p) 
 {
     assert (self);
-    assert (proto);
+    assert (proto_p);
+
+    bios_proto_t *proto = *proto_p;
+    if ( proto == NULL )
+        return;
 
     if (bios_proto_id (proto) == BIOS_PROTO_METRIC) {
 
@@ -183,9 +192,9 @@ data_put (data_t *self, bios_proto_t *proto)
             // need to compute new expiration time
             uint64_t now_sec = zclock_time () / 1000 ;
             uint64_t timestamp = bios_proto_aux_number (proto, "time", now_sec);
-            zsys_debug ("timestamp=%" PRIu64, timestamp);
             expiration_update (e, timestamp, self->verbose);
         }
+        bios_proto_destroy (proto_p);
         // if asset is not known -> we are not interested!
     }
     else if (bios_proto_id (proto) == BIOS_PROTO_ASSET) {
@@ -212,7 +221,7 @@ data_put (data_t *self, bios_proto_t *proto)
                 // this asset is not known yet -> add it to the cache
                 expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name );
                 if ( e == NULL ) {
-                    e = expiration_new (self->default_expiry_sec);
+                    e = expiration_new (self->default_expiry_sec, proto_p);
                     uint64_t now_sec = zclock_time() / 1000;
                     expiration_update (e, now_sec, self->verbose);
                     if ( self->verbose )
@@ -227,6 +236,7 @@ data_put (data_t *self, bios_proto_t *proto)
         }
     }
 }
+
 // --------------------------------------------------------------------------
 // delete from cache
 void
@@ -236,6 +246,36 @@ data_delete (data_t *self, const char* source)
     assert (source);
 
     zhashx_delete (self->assets, source);
+}
+
+// --------------------------------------------------------------------------
+// get all sensors assigned to port 'port' on the device 'parent_name'
+// return NULL in case of memory issues
+// empty list if nothing was found
+// ownership of the list is transferd to the caller and he is responsible for destroying it
+zlist_t *
+data_get_sensors (data_t *self, const char *port, const char *parent_name)
+{
+    assert (self);
+    assert (port);
+    assert (parent_name);
+
+    zlist_t *sensors = zlist_new();
+    zlist_autofree (sensors);
+    if ( sensors ) {
+        for ( expiration_t *asset = (expiration_t *) zhashx_first (self->assets); asset != NULL ; asset = (expiration_t *) zhashx_next (self->assets) ) {
+            if (    streq (bios_proto_ext_string (asset->msg, "port", ""), port)
+                 && streq (bios_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name) )
+            {
+                zlist_push (sensors, (void *) bios_proto_name (asset->msg));
+            }
+        }
+    }
+    else {
+        // intentionally left empty
+        // handle memory error
+    }
+    return sensors;
 }
 
 // --------------------------------------------------------------------------
@@ -290,6 +330,100 @@ zlistx_print_dead (zlistx_t *self) {
     }
 }
 
+
+static void
+test_data_add_sensor (data_t *data, const char *asset_name, const char *port, const char *parent_name)
+{
+    bios_proto_t *asset = bios_proto_new (BIOS_PROTO_ASSET);
+    bios_proto_set_name (asset, asset_name);
+    bios_proto_set_operation (asset, "create");
+    bios_proto_ext_insert (asset, "port", port);
+    bios_proto_aux_insert (asset, "type", "device");
+    bios_proto_aux_insert (asset, "subtype", "sensor");
+    bios_proto_aux_insert (asset, "parent_name.1", parent_name);
+
+    data_put (data, &asset);
+}
+
+void test0 (bool verbose)
+{
+    if ( verbose )
+        zsys_info ("Test0: data new/destroy test");
+    data_t *data = data_new();
+    data_destroy (&data);
+    if ( verbose )
+        zsys_info ("Test0: OK");
+}
+
+void test1 (bool verbose)
+{
+    if ( verbose )
+        zsys_info ("Test1: check data_get_sensors");
+    data_t *data = data_new();
+    
+    test_data_add_sensor (data, "sensor1", "port1", "parent_1");
+    test_data_add_sensor (data, "sensor2", "port1", "parent_1");
+    test_data_add_sensor (data, "sensor3", "port3", "parent_1");
+    
+    test_data_add_sensor (data, "sensor4", "port1", "parent_2");
+    test_data_add_sensor (data, "sensor5", "port3", "parent_2");
+    test_data_add_sensor (data, "sensor6", "port3", "parent_2");
+    test_data_add_sensor (data, "sensor7", "port2", "parent_2");
+
+    zlist_t *sensors = NULL;
+    sensors = data_get_sensors (data, "port1", "parent_1");
+    assert (sensors);
+    assert (zlist_size (sensors) == 2);
+    zlist_destroy (&sensors);
+
+    sensors = data_get_sensors (data, "port3", "parent_1");
+    assert (sensors);
+    assert (zlist_size (sensors) == 1);
+    zlist_destroy (&sensors);
+
+    sensors = data_get_sensors (data, "port4", "parent_1");
+    assert (sensors);
+    assert (zlist_size (sensors) == 0);
+    zlist_destroy (&sensors);
+
+    sensors = data_get_sensors (data, "port1", "parent_2");
+    assert (sensors);
+    assert (zlist_size (sensors) == 1);
+    zlist_destroy (&sensors);
+
+    sensors = data_get_sensors (data, "port3", "parent_2");
+    assert (sensors);
+    assert (zlist_size (sensors) == 2);
+    zlist_destroy (&sensors);
+
+    sensors = data_get_sensors (data, "port2", "parent_2");
+    assert (sensors);
+    assert (zlist_size (sensors) == 1);
+    zlist_destroy (&sensors);
+
+    sensors = data_get_sensors (data, "port4", "parent_2");
+    assert (sensors);
+    assert (zlist_size (sensors) == 0);
+    zlist_destroy (&sensors);
+
+    data_destroy (&data);
+    if ( verbose )
+        zsys_info ("Test1: OK");
+}
+
+void test2 (bool verbose)
+{
+    if ( verbose )
+        zsys_info ("Test2: expiration new/destroy test");
+
+    bios_proto_t *msg = bios_proto_new (BIOS_PROTO_ASSET);
+    expiration_t *e = expiration_new(10, &msg);
+    
+    expiration_destroy (&e);
+    if ( verbose )
+        zsys_info ("Test2: OK");
+}
+
 //  --------------------------------------------------------------------------
 //  Self test of this class
 
@@ -298,8 +432,10 @@ data_test (bool verbose)
 {
     printf (" * data: \n");
 
-    expiration_t *e = expiration_new(10);
-    expiration_destroy (&e);
+    test0 (verbose);
+
+    test1 (verbose);
+   
     //  aux data for metric - var_name | msg issued
     zhash_t *aux = zhash_new();
 
@@ -324,8 +460,7 @@ data_test (bool verbose)
     zhash_insert (asset_aux, "subtype", "ups");
     zmsg_t *asset = bios_proto_encode_asset (asset_aux, "UPS4", "create", NULL);
     bios_proto_t *proto_n = bios_proto_decode (&asset);
-    data_put(data, proto_n);
-    bios_proto_destroy (&proto_n);
+    data_put(data, &proto_n);
     zhash_destroy (&asset_aux);
 
     asset_aux = zhash_new ();
@@ -333,21 +468,18 @@ data_test (bool verbose)
     zhash_insert (asset_aux, "subtype", "ups");
     asset = bios_proto_encode_asset (asset_aux, "UPS3", "create", NULL);
     proto_n = bios_proto_decode (&asset);
-    data_put(data, proto_n);
-    bios_proto_destroy (&proto_n);
+    data_put(data, &proto_n);
     zhash_destroy (&asset_aux);
 
     // create new metric UPS4 - exp NOK
     zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 3);
     proto_n = bios_proto_decode (&met_n);
-    data_put(data, proto_n);
-    bios_proto_destroy (&proto_n);
+    data_put (data, &proto_n);
     
     // create new metric UPS3 - exp NOT OK
     met_n = bios_proto_encode_metric (aux, "device", "UPS3", "100", "C", 1);
     proto_n = bios_proto_decode (&met_n);
-    data_put(data, proto_n);
-    bios_proto_destroy (&proto_n);
+    data_put(data, &proto_n);
     zclock_sleep (5000);
     // give me dead devices
     zlistx_t *list = data_get_dead(data);
@@ -361,8 +493,7 @@ data_test (bool verbose)
     zhash_update(aux,"time" , "90000000000000");
     zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 2);
     bios_proto_t *proto_u = bios_proto_decode (&met_u);
-    data_put(data, proto_u);
-    bios_proto_destroy (&proto_n);
+    data_put(data, &proto_u);
 
     // give me dead devices
     list = data_get_dead(data);
@@ -378,8 +509,7 @@ data_test (bool verbose)
     zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "epdu");
     zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", BIOS_PROTO_ASSET_OP_CREATE, NULL);
     bios_proto_t* bmsg = bios_proto_decode (&msg);
-    data_put (data, bmsg);
-    bios_proto_destroy (&bmsg);
+    data_put (data, &bmsg);
 
     assert (zhashx_lookup (data->assets, "PDU1"));
     uint64_t now_sec = zclock_time() / 1000;

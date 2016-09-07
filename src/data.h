@@ -45,9 +45,10 @@ AGENT_OUTAGE_EXPORT uint64_t
 AGENT_OUTAGE_EXPORT void
     data_set_default_expiry (data_t* self, uint64_t expiry_sec);
 
-//  calculates metric expiration time for each asset  
+//  calculates metric expiration time for each asset
+//  takes owneship of the message
 AGENT_OUTAGE_EXPORT void
-    data_put (data_t *self, bios_proto_t  *proto);
+    data_put (data_t *self, bios_proto_t  **proto);
 
 //  delete from cache
 AGENT_OUTAGE_EXPORT void
@@ -56,6 +57,13 @@ AGENT_OUTAGE_EXPORT void
 //  Returns list of nonresponding devices, zlistx entries are refereces
 AGENT_OUTAGE_EXPORT zlistx_t *
     data_get_dead (data_t *self);
+
+//  get all sensors assigned to port 'port' on the device 'parent_name'
+//  return NULL in case of memory issues
+//  empty list if nothing was found
+//  ownership of the list is transferd to the caller and he is responsible for destroying it
+AGENT_OUTAGE_EXPORT zlist_t *
+    data_get_sensors (data_t *self, const char *port, const char *parent_name);
 
 //  Setup as verbose
 AGENT_OUTAGE_EXPORT void
