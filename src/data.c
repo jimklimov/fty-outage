@@ -192,7 +192,10 @@ data_put (data_t *self, bios_proto_t **proto_p)
             // need to compute new expiration time
             uint64_t now_sec = zclock_time () / 1000 ;
             uint64_t timestamp = bios_proto_aux_number (proto, "time", now_sec);
-            expiration_update (e, timestamp, self->verbose);
+            if ( timestamp > now_sec )
+                zsys_info ("ao: we got metric '%s@%s' from future, ignore it", bios_proto_element_src (proto), bios_proto_type (proto));
+            else
+                expiration_update (e, timestamp, self->verbose);
         }
         bios_proto_destroy (proto_p);
         // if asset is not known -> we are not interested!
@@ -490,7 +493,7 @@ data_test (bool verbose)
     zlistx_destroy (&list);
 
     // update metric - exp OK
-    zhash_update(aux,"time" , "90000000000000");
+    zhash_delete (aux, "time");
     zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 2);
     bios_proto_t *proto_u = bios_proto_decode (&met_u);
     data_put(data, &proto_u);
