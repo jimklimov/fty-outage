@@ -193,7 +193,7 @@ data_put (data_t *self, bios_proto_t **proto_p)
             else {
                 expiration_update (e, timestamp);
                 if ( self->verbose )
-                    zsys_debug ("asset: INFO UPDATED name='%s', last_seen=" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=" PRIu64 "[s]", bios_proto_element_src (proto), e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
+                    zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", bios_proto_element_src (proto), e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
             }
         }
         bios_proto_destroy (proto_p);
@@ -229,7 +229,7 @@ data_put (data_t *self, bios_proto_t **proto_p)
                     uint64_t now_sec = zclock_time() / 1000;
                     expiration_update (e, now_sec);
                     if ( self->verbose )
-                        zsys_debug ("asset: ADDED name='%s', last_seen=" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
+                        zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
                     zhashx_insert (self->assets, asset_name, e);
                 }
                 else {
