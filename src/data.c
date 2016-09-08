@@ -67,7 +67,7 @@ expiration_destroy (expiration_t **self_p)
 // set up new expected expiration time, given last seen time
 // this function can only prolong exiration_time
 static void
-expiration_update (expiration_t *self, uint64_t new_time_seen_sec, bool verbose)
+expiration_update (expiration_t *self, uint64_t new_time_seen_sec)
 {
     // this will ensure, that we will not have 'experiation' time moving backwards!
     // Situation: at 03:33 metric with 24h average comes with 'time' = 00:00
@@ -76,12 +76,10 @@ expiration_update (expiration_t *self, uint64_t new_time_seen_sec, bool verbose)
     // This 'if' is a guard for this situation!
     if ( new_time_seen_sec > self->last_time_seen_sec )
         self->last_time_seen_sec = new_time_seen_sec;
-    if ( verbose )
-        zsys_debug ("last_seen_time[s]: %" PRIu64, self->last_time_seen_sec);
 }
 
 static void
-expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl, bool verbose)
+expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
 {
     // ATTENTION: if minimum ttl for some asset is greater than DEFAULT_ASSET_EXPIRATION_TIME_SEC
     // it will be sending alerts every DEFAULT_ASSET_EXPIRATION_TIME_SEC
@@ -90,8 +88,6 @@ expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl, bool verbose)
     if ( self->ttl_sec > proposed_ttl ) {
         self->ttl_sec = proposed_ttl;
     }
-    if ( verbose )
-        zsys_debug ("ttl[s]: %" PRIu64, self->ttl_sec);
 }
 
 static uint64_t
@@ -188,14 +184,17 @@ data_put (data_t *self, bios_proto_t **proto_p)
             
             // try to update ttl
             uint64_t ttl = bios_proto_ttl (proto);
-            expiration_update_ttl (e, ttl, self->verbose);
+            expiration_update_ttl (e, ttl);
             // need to compute new expiration time
             uint64_t now_sec = zclock_time () / 1000 ;
             uint64_t timestamp = bios_proto_aux_number (proto, "time", now_sec);
             if ( timestamp > now_sec )
                 zsys_info ("ao: we got metric '%s@%s' from future, ignore it", bios_proto_element_src (proto), bios_proto_type (proto));
-            else
-                expiration_update (e, timestamp, self->verbose);
+            else {
+                expiration_update (e, timestamp);
+                if ( self->verbose )
+                    zsys_debug ("asset: INFO UPDATED name='%s', last_seen=" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=" PRIu64 "[s]", bios_proto_element_src (proto), e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
+            }
         }
         bios_proto_destroy (proto_p);
         // if asset is not known -> we are not interested!
@@ -205,13 +204,15 @@ data_put (data_t *self, bios_proto_t **proto_p)
         const char *operation = bios_proto_operation (proto);
         const char *asset_name = bios_proto_name (proto);
         if (self->verbose)
-            zsys_debug ("asset: name=%s, operation=%s", asset_name, operation);
+            zsys_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
 
         // remove asset from cache
         if (    streq (operation, BIOS_PROTO_ASSET_OP_DELETE)
              || streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
         {
             data_delete (self, asset_name);
+            if (self->verbose)
+                zsys_debug ("asset: DELETED name=%s, operation=%s", asset_name, operation);
         }
         else
         // other asset operations - add ups, epdu or sensors to the cache if not present
@@ -226,9 +227,9 @@ data_put (data_t *self, bios_proto_t **proto_p)
                 if ( e == NULL ) {
                     e = expiration_new (self->default_expiry_sec, proto_p);
                     uint64_t now_sec = zclock_time() / 1000;
-                    expiration_update (e, now_sec, self->verbose);
+                    expiration_update (e, now_sec);
                     if ( self->verbose )
-                        zsys_debug ("asset: ADDED: name = '%s', now = %" PRIu64 "s, expires_at=%" PRIu64 "s", asset_name, now_sec, experiation_get (e));
+                        zsys_debug ("asset: ADDED name='%s', last_seen=" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
                     zhashx_insert (self->assets, asset_name, e);
                 }
                 else {
