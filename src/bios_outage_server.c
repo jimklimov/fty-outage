@@ -93,6 +93,8 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
         "outage",
         "CRITICAL",
         source_asset);
+    if ( self->verbose )
+        zsys_debug ("Alert '%s' is '%s'", subject, alert_state);
     int rv = mlm_client_send (self->client, subject, &msg);
     if ( rv != 0 )
         zsys_error ("Cannot send alert on '%s' (mlm_cleint_send)", source_asset);
@@ -279,7 +281,7 @@ bios_outage_server (zsock_t *pipe, void *args)
                     zsys_debug ("\tsource=%s", source);
                 if (!zhash_lookup (self->active_alerts, source)) {
                     if (self->verbose)
-                        zsys_debug ("\t\tsend alert for source=%s", source);
+                        zsys_debug ("\t\tsend ACTIVE alert for source=%s", source);
                     s_osrv_send_alert (self, source, "ACTIVE");
                     zhash_insert (self->active_alerts, source, TRUE);
                 }
@@ -337,7 +339,10 @@ bios_outage_server (zsock_t *pipe, void *args)
                             // is it from sensor? yes
                             zlist_t *sources = data_get_sensors (self->assets, bios_proto_aux_string (bmsg, "port", NULL), bios_proto_element_src (bmsg));
                             for ( char *source = (char *) zlist_first (sources); source != NULL ; source = (char *) zlist_next (sources) ) {
+                                if ( self->verbose )
+                                    zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  bios_proto_element_src (bmsg), bios_proto_aux_string (bmsg, "port", ""));
                                 s_osrv_resolve_alert (self, source);
+                                bios_proto_set_element_src (bmsg, source); // pretend this message was from this sensor!!!!
                                 data_put (self->assets, &bmsg);
                             }
                             zlist_destroy (&sources);
