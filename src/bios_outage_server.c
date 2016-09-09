@@ -361,8 +361,12 @@ bios_outage_server (zsock_t *pipe, void *args)
                 }
                 else
                 if (bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
-                    const char* source = bios_proto_name (bmsg);
-                    s_osrv_resolve_alert (self, source);
+                    if (    streq (bios_proto_operation (bmsg), BIOS_PROTO_ASSET_OP_DELETE)
+                         || streq (bios_proto_aux_string (bmsg, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
+                    {
+                        const char* source = bios_proto_name (bmsg);
+                        s_osrv_resolve_alert (self, source);
+                    }
                     data_put (self->assets, &bmsg);
                 }
             }
