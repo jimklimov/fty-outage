@@ -65,6 +65,12 @@ AGENT_OUTAGE_EXPORT zlistx_t *
 AGENT_OUTAGE_EXPORT zlist_t *
     data_get_sensors (data_t *self, const char *port, const char *parent_name);
 
+//  update information about expiration time
+//  return -1, if data are from future and are ignored as damaging
+//  return 0 otherwise
+AGENT_OUTAGE_EXPORT int
+    data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint64_t ttl, uint64_t now_sec);
+
 //  Setup as verbose
 AGENT_OUTAGE_EXPORT void
     data_set_verbose (data_t* self, bool verbose);

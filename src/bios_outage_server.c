@@ -87,7 +87,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
             alert_state,
             "CRITICAL",
             "Device does not provide expected data. It may be offline or not correctly configured.",
-            time (NULL),
+            zclock_time() / 1000,
             "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
@@ -335,6 +335,8 @@ bios_outage_server (zsock_t *pipe, void *args)
                 if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
                     const char *is_computed = bios_proto_aux_string (bmsg, "x-cm-count", NULL);
                     if ( !is_computed ) {
+                        uint64_t now_sec = zclock_time() / 1000;
+                        uint64_t timestamp = bios_proto_aux_number (bmsg, "time", now_sec);
                         if ( bios_proto_aux_string (bmsg, "port", NULL) != NULL ) {
                             // is it from sensor? yes
                             zlist_t *sources = data_get_sensors (self->assets, bios_proto_aux_string (bmsg, "port", NULL), bios_proto_element_src (bmsg));
@@ -342,8 +344,9 @@ bios_outage_server (zsock_t *pipe, void *args)
                                 if ( self->verbose )
                                     zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  bios_proto_element_src (bmsg), bios_proto_aux_string (bmsg, "port", ""));
                                 s_osrv_resolve_alert (self, source);
-                                bios_proto_set_element_src (bmsg, source); // pretend this message was from this sensor!!!!
-                                data_put (self->assets, &bmsg);
+                                int rv = data_touch_asset (self->assets, source, timestamp, bios_proto_ttl (bmsg), now_sec);
+                                if ( rv == -1 )
+                                    zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
                             }
                             zlist_destroy (&sources);
                         }
@@ -351,7 +354,9 @@ bios_outage_server (zsock_t *pipe, void *args)
                             // is it from sensor? no
                             const char *source = bios_proto_element_src (bmsg);
                             s_osrv_resolve_alert (self, source);
-                            data_put (self->assets, &bmsg);
+                            int rv = data_touch_asset (self->assets, source, timestamp, bios_proto_ttl (bmsg), now_sec);
+                            if ( rv == -1 )
+                                zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
                         }
                     }
                     else {
