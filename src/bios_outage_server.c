@@ -178,7 +178,7 @@ s_osrv_load (s_osrv_t *self)
 
     for (zconfig_t *child = zconfig_child (active_alerts);
                     child != NULL;
-                    child = zconfig_next (active_alerts))
+                    child = zconfig_next (child))
     {
         zhash_insert (self->active_alerts, zconfig_name (child), TRUE);
     }
@@ -641,5 +641,28 @@ bios_outage_server_test (bool verbose)
     zactor_destroy (&server);
     
     //  @end
+
+    // Those are PRIVATE to actor, so won't be a part of documentation
+    s_osrv_t * self2 = s_osrv_new ();
+    zhash_insert (self2->active_alerts, "DEVICE1", TRUE);
+    zhash_insert (self2->active_alerts, "DEVICE2", TRUE);
+    zhash_insert (self2->active_alerts, "DEVICE3", TRUE);
+    self2->state_file = strdup ("src/state.zpl");
+    s_osrv_save (self2);
+    s_osrv_destroy (&self2);
+
+    self2 = s_osrv_new ();
+    self2->state_file = strdup ("src/state.zpl");
+    s_osrv_load (self2);
+
+    assert (zhash_size (self2->active_alerts) == 3);
+    assert (zhash_lookup (self2->active_alerts, "DEVICE1"));
+    assert (zhash_lookup (self2->active_alerts, "DEVICE2"));
+    assert (zhash_lookup (self2->active_alerts, "DEVICE3"));
+    assert (!zhash_lookup (self2->active_alerts, "DEVICE4"));
+
+    s_osrv_destroy (&self2);
+
+    unlink ("src/state.zpl");
     printf ("OK\n");
 }
