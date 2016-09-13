@@ -270,6 +270,8 @@ s_osrv_save (s_osrv_t *self)
     }
 
     int ret = zconfig_save (root, self->state_file);
+    if (self->verbose)
+        zsys_debug ("outage_actor: save state to %s", self->state_file);
     zconfig_destroy (&root);
     return ret;
 }
