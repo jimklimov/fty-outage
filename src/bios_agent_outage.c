@@ -67,7 +67,7 @@ int main (int argc, char *argv [])
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_ASSETS, ".*", NULL);
     zstr_sendx (self, "PRODUCER", BIOS_PROTO_STREAM_ALERTS_SYS, NULL);
     zstr_sendx (self, "TIMEOUT", "30000", NULL);
-    zstr_sendx (self, "STATE-FILE", "/var/lib/bios/agent-outage/state.zconfig", NULL);
+    zstr_sendx (self, "STATE-FILE", "/var/lib/bios/agent-outage/state.zpl", NULL);
 
     // src/malamute.c, under MPL license
     while (true) {
