@@ -138,12 +138,15 @@ s_osrv_save (s_osrv_t *self)
     zconfig_t *active_alerts = zconfig_new ("alerts", root);
     assert (active_alerts);
 
+    size_t i = 0;
     for (void*  it = zhash_first (self->active_alerts);
                 it != NULL;
                 it = zhash_next (self->active_alerts))
     {
-        const char *key = (const char*) zhash_cursor (self->active_alerts);
-        zconfig_put (active_alerts, key, "ACTIVE");
+        const char *value = (const char*) zhash_cursor (self->active_alerts);
+        char *key = zsys_sprintf ("%zu", i++);
+        zconfig_put (active_alerts, key, value);
+        zstr_free (&key);
     }
 
     int ret = zconfig_save (root, self->state_file);
@@ -180,7 +183,7 @@ s_osrv_load (s_osrv_t *self)
                     child != NULL;
                     child = zconfig_next (child))
     {
-        zhash_insert (self->active_alerts, zconfig_name (child), TRUE);
+        zhash_insert (self->active_alerts, zconfig_value (child), TRUE);
     }
 
     zconfig_destroy (&root);
@@ -268,10 +271,11 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     {
         char *timeout = zmsg_popstr(message);
 
-        if (timeout){
+        if (timeout) {
             self->timeout_ms = (uint64_t) atoll (timeout);
             if (self->verbose)
-                zsys_debug ("outage_actor: TIMEOUT: \"%s\"/%"PRIu64, timeout, self->timeout_ms);}
+                zsys_debug ("outage_actor: TIMEOUT: \"%s\"/%"PRIu64, timeout, self->timeout_ms);
+        }
         zstr_free(&timeout);
     }
     else
@@ -647,6 +651,7 @@ bios_outage_server_test (bool verbose)
     zhash_insert (self2->active_alerts, "DEVICE1", TRUE);
     zhash_insert (self2->active_alerts, "DEVICE2", TRUE);
     zhash_insert (self2->active_alerts, "DEVICE3", TRUE);
+    zhash_insert (self2->active_alerts, "DEVICE WITH SPACE", TRUE);
     self2->state_file = strdup ("src/state.zpl");
     s_osrv_save (self2);
     s_osrv_destroy (&self2);
@@ -655,10 +660,11 @@ bios_outage_server_test (bool verbose)
     self2->state_file = strdup ("src/state.zpl");
     s_osrv_load (self2);
 
-    assert (zhash_size (self2->active_alerts) == 3);
+    assert (zhash_size (self2->active_alerts) == 4);
     assert (zhash_lookup (self2->active_alerts, "DEVICE1"));
     assert (zhash_lookup (self2->active_alerts, "DEVICE2"));
     assert (zhash_lookup (self2->active_alerts, "DEVICE3"));
+    assert (zhash_lookup (self2->active_alerts, "DEVICE WITH SPACE"));
     assert (!zhash_lookup (self2->active_alerts, "DEVICE4"));
 
     s_osrv_destroy (&self2);
