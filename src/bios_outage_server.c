@@ -30,6 +30,8 @@
 
 #include "agent_outage_classes.h"
 #include "data.h"
+    
+static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
 
 typedef struct _s_osrv_t {
     bool verbose;
@@ -119,6 +121,72 @@ s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
         zhash_delete (self->active_alerts, source_asset);
     }
 }
+
+static int
+s_osrv_save (s_osrv_t *self)
+{
+    assert (self);
+
+    if (!self->state_file) {
+        zsys_warning ("There is no state path set-up, can't store the state");
+        return -1;
+    }
+
+    zconfig_t *root = zconfig_new ("root", NULL);
+    assert (root);
+
+    zconfig_t *active_alerts = zconfig_new ("alerts", root);
+    assert (active_alerts);
+
+    for (void*  it = zhash_first (self->active_alerts);
+                it != NULL;
+                it = zhash_next (self->active_alerts))
+    {
+        const char *key = (const char*) zhash_cursor (self->active_alerts);
+        zconfig_put (active_alerts, key, "ACTIVE");
+    }
+
+    int ret = zconfig_save (root, self->state_file);
+    if (self->verbose)
+        zsys_debug ("outage_actor: save state to %s", self->state_file);
+    zconfig_destroy (&root);
+    return ret;
+}
+
+static int
+s_osrv_load (s_osrv_t *self)
+{
+    assert (self);
+
+    if (!self->state_file) {
+        zsys_warning ("There is no state path set-up, can't load the state");
+        return -1;
+    }
+
+    zconfig_t *root = zconfig_load (self->state_file);
+    if (!root) {
+        zsys_error ("Can't load configuration from %s: %m", self->state_file);
+        return -1;
+    }
+
+    zconfig_t *active_alerts = zconfig_locate (root, "alerts");
+    if (!active_alerts) {
+        zsys_error ("Can't find 'alerts' in %s", self->state_file);
+        zconfig_destroy (&root);
+        return -1;
+    }
+
+    for (zconfig_t *child = zconfig_child (active_alerts);
+                    child != NULL;
+                    child = zconfig_next (active_alerts))
+    {
+        zhash_insert (self->active_alerts, zconfig_name (child), TRUE);
+    }
+
+    zconfig_destroy (&root);
+    return 0;
+}
+
 
 /*
  * return values :
@@ -226,6 +294,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
             self->state_file = strdup (state_file);
             if (self->verbose)
                 zsys_debug ("outage_actor: STATE-FILE: %s", state_file);
+            s_osrv_load (self);
         }
         zstr_free(&state_file);
     }
@@ -245,45 +314,11 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     return 0;
 }
 
-static int
-s_osrv_save (s_osrv_t *self)
-{
-    assert (self);
-
-    if (!self->state_file) {
-        zsys_warning ("There is no state path set-up, can't store the state");
-        return -1;
-    }
-
-    zconfig_t *root = zconfig_new ("root", NULL);
-    assert (root);
-
-    zconfig_t *active_alerts = zconfig_new ("alerts", root);
-    assert (active_alerts);
-
-    for (void*  it = zhash_first (self->active_alerts);
-                it != NULL;
-                it = zhash_next (self->active_alerts))
-    {
-        const char *key = (const char*) zhash_cursor (self->active_alerts);
-        zconfig_put (active_alerts, key, "ACTIVE");
-    }
-
-    int ret = zconfig_save (root, self->state_file);
-    if (self->verbose)
-        zsys_debug ("outage_actor: save state to %s", self->state_file);
-    zconfig_destroy (&root);
-    return ret;
-}
-
 // --------------------------------------------------------------------------
 // Create a new bios_outage_server
 void
 bios_outage_server (zsock_t *pipe, void *args)
 {
-    static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
-                                          // basically we don't care about value, just it must be != NULL
-
     s_osrv_t *self = s_osrv_new ();
     assert (self);
 
