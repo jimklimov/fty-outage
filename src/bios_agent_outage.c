@@ -60,13 +60,14 @@ int main (int argc, char *argv [])
     zactor_t *self = zactor_new (bios_outage_server, NULL);
     if (verbose)
         zstr_sendx (self, "VERBOSE", NULL);
+    zstr_sendx (self, "STATE-FILE", "/var/lib/bios/agent-outage/state.zpl", NULL);
+    zstr_sendx (self, "TIMEOUT", "30000", NULL);
     zstr_sendx (self, "CONNECT", "ipc://@/malamute", "agent-outage", NULL);
+    zstr_sendx (self, "PRODUCER", BIOS_PROTO_STREAM_ALERTS_SYS, NULL);
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_METRICS, ".*", NULL);
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_METRICS_UNAVAILABLE, ".*", NULL);
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_METRICS_SENSOR, ".*", NULL);
     zstr_sendx (self, "CONSUMER", BIOS_PROTO_STREAM_ASSETS, ".*", NULL);
-    zstr_sendx (self, "PRODUCER", BIOS_PROTO_STREAM_ALERTS_SYS, NULL);
-    zstr_sendx (self, "TIMEOUT", "30000", NULL);
 
     // src/malamute.c, under MPL license
     while (true) {

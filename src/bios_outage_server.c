@@ -26,9 +26,12 @@
 @end
 */
 #define TIMEOUT_MS 30000   //wait at least 30 seconds
+#define SAVE_INTERVAL_MS 45*60*1000 // store state each 45 minutes
 
 #include "agent_outage_classes.h"
 #include "data.h"
+    
+static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
 
 typedef struct _s_osrv_t {
     bool verbose;
@@ -36,6 +39,7 @@ typedef struct _s_osrv_t {
     mlm_client_t *client;
     data_t *assets;
     zhash_t *active_alerts;
+    char *state_file;
 } s_osrv_t;
 
 static void
@@ -47,6 +51,7 @@ s_osrv_destroy (s_osrv_t **self_p)
         zhash_destroy (&self->active_alerts);
         data_destroy (&self->assets);
         mlm_client_destroy (&self->client);
+        zstr_free (&self->state_file);
         free (self);
         *self_p = NULL;
     }
@@ -65,6 +70,7 @@ s_osrv_new ()
         if (self->active_alerts) {
             self->verbose = false;
             self->timeout_ms = TIMEOUT_MS;
+            self->state_file = NULL;
         } else {
             s_osrv_destroy (&self);
         }
@@ -115,6 +121,75 @@ s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
         zhash_delete (self->active_alerts, source_asset);
     }
 }
+
+static int
+s_osrv_save (s_osrv_t *self)
+{
+    assert (self);
+
+    if (!self->state_file) {
+        zsys_warning ("There is no state path set-up, can't store the state");
+        return -1;
+    }
+
+    zconfig_t *root = zconfig_new ("root", NULL);
+    assert (root);
+
+    zconfig_t *active_alerts = zconfig_new ("alerts", root);
+    assert (active_alerts);
+
+    size_t i = 0;
+    for (void*  it = zhash_first (self->active_alerts);
+                it != NULL;
+                it = zhash_next (self->active_alerts))
+    {
+        const char *value = (const char*) zhash_cursor (self->active_alerts);
+        char *key = zsys_sprintf ("%zu", i++);
+        zconfig_put (active_alerts, key, value);
+        zstr_free (&key);
+    }
+
+    int ret = zconfig_save (root, self->state_file);
+    if (self->verbose)
+        zsys_debug ("outage_actor: save state to %s", self->state_file);
+    zconfig_destroy (&root);
+    return ret;
+}
+
+static int
+s_osrv_load (s_osrv_t *self)
+{
+    assert (self);
+
+    if (!self->state_file) {
+        zsys_warning ("There is no state path set-up, can't load the state");
+        return -1;
+    }
+
+    zconfig_t *root = zconfig_load (self->state_file);
+    if (!root) {
+        zsys_error ("Can't load configuration from %s: %m", self->state_file);
+        return -1;
+    }
+
+    zconfig_t *active_alerts = zconfig_locate (root, "alerts");
+    if (!active_alerts) {
+        zsys_error ("Can't find 'alerts' in %s", self->state_file);
+        zconfig_destroy (&root);
+        return -1;
+    }
+
+    for (zconfig_t *child = zconfig_child (active_alerts);
+                    child != NULL;
+                    child = zconfig_next (child))
+    {
+        zhash_insert (self->active_alerts, zconfig_value (child), TRUE);
+    }
+
+    zconfig_destroy (&root);
+    return 0;
+}
+
 
 /*
  * return values :
@@ -196,7 +271,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     {
         char *timeout = zmsg_popstr(message);
 
-        if (timeout){
+        if (timeout) {
             self->timeout_ms = (uint64_t) atoll (timeout);
             if (self->verbose)
                 zsys_debug ("outage_actor: TIMEOUT: \"%s\"/%"PRIu64, timeout, self->timeout_ms);
@@ -216,6 +291,18 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         zstr_free(&timeout);
     }
     else
+    if (streq (command, "STATE-FILE"))
+    {
+        char *state_file = zmsg_popstr(message);
+        if (state_file) {
+            self->state_file = strdup (state_file);
+            if (self->verbose)
+                zsys_debug ("outage_actor: STATE-FILE: %s", state_file);
+            s_osrv_load (self);
+        }
+        zstr_free(&state_file);
+    }
+    else
     if (streq (command, "VERBOSE"))
     {
         self->verbose = true;
@@ -231,16 +318,11 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     return 0;
 }
 
-
-
 // --------------------------------------------------------------------------
 // Create a new bios_outage_server
 void
 bios_outage_server (zsock_t *pipe, void *args)
 {
-    static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
-                                          // basically we don't care about value, just it must be != NULL
-
     s_osrv_t *self = s_osrv_new ();
     assert (self);
 
@@ -252,6 +334,7 @@ bios_outage_server (zsock_t *pipe, void *args)
     //    poller timeout
     uint64_t now_ms = zclock_mono ();
     uint64_t last_dead_check_ms = now_ms;
+    uint64_t last_save = now_ms;
 
     while (!zsys_interrupted)
     {
@@ -264,8 +347,15 @@ bios_outage_server (zsock_t *pipe, void *args)
             }
         }
 
-        // send alerts
         now_ms = zclock_mono ();
+
+        // save the state
+        if ((now_ms - last_save) > SAVE_INTERVAL_MS) {
+            s_osrv_save (self);
+            last_save = now_ms;
+        }
+
+        // send alerts
         if (zpoller_expired (poller) || (now_ms - last_dead_check_ms) > self->timeout_ms) {
             if (self->verbose)
                 zsys_debug ("poll event");
@@ -380,6 +470,7 @@ bios_outage_server (zsock_t *pipe, void *args)
     }
     zpoller_destroy (&poller);
     // TODO: save/load the state
+    s_osrv_save (self);
     s_osrv_destroy (&self);
     zsys_info ("agent_outage: Ended");
 }
@@ -554,5 +645,30 @@ bios_outage_server_test (bool verbose)
     zactor_destroy (&server);
     
     //  @end
+
+    // Those are PRIVATE to actor, so won't be a part of documentation
+    s_osrv_t * self2 = s_osrv_new ();
+    zhash_insert (self2->active_alerts, "DEVICE1", TRUE);
+    zhash_insert (self2->active_alerts, "DEVICE2", TRUE);
+    zhash_insert (self2->active_alerts, "DEVICE3", TRUE);
+    zhash_insert (self2->active_alerts, "DEVICE WITH SPACE", TRUE);
+    self2->state_file = strdup ("src/state.zpl");
+    s_osrv_save (self2);
+    s_osrv_destroy (&self2);
+
+    self2 = s_osrv_new ();
+    self2->state_file = strdup ("src/state.zpl");
+    s_osrv_load (self2);
+
+    assert (zhash_size (self2->active_alerts) == 4);
+    assert (zhash_lookup (self2->active_alerts, "DEVICE1"));
+    assert (zhash_lookup (self2->active_alerts, "DEVICE2"));
+    assert (zhash_lookup (self2->active_alerts, "DEVICE3"));
+    assert (zhash_lookup (self2->active_alerts, "DEVICE WITH SPACE"));
+    assert (!zhash_lookup (self2->active_alerts, "DEVICE4"));
+
+    s_osrv_destroy (&self2);
+
+    unlink ("src/state.zpl");
     printf ("OK\n");
 }
