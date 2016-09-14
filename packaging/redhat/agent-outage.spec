@@ -93,6 +93,7 @@ find %{buildroot} -name '*.la' | xargs rm -f
 %defattr(-,root,root)
 %{_bindir}/bios-agent-outage
 %{_prefix}/lib/systemd/system/bios-agent-outage*.service
+/usr/lib/tmpfiles.d/bios-agent-outage.conf
 
 
 %changelog

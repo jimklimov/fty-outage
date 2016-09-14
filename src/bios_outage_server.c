@@ -298,7 +298,9 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
             self->state_file = strdup (state_file);
             if (self->verbose)
                 zsys_debug ("outage_actor: STATE-FILE: %s", state_file);
-            s_osrv_load (self);
+            int r = s_osrv_load (self);
+            if (r != 0)
+                zsys_error ("outage_actor: failed to load state file %s: %m", self->state_file);
         }
         zstr_free(&state_file);
     }
@@ -351,7 +353,9 @@ bios_outage_server (zsock_t *pipe, void *args)
 
         // save the state
         if ((now_ms - last_save) > SAVE_INTERVAL_MS) {
-            s_osrv_save (self);
+            int r = s_osrv_save (self);
+            if (r != 0)
+                zsys_error ("outage_actor: failed to save state file %s: %m", self->state_file);
             last_save = now_ms;
         }
 
@@ -469,8 +473,9 @@ bios_outage_server (zsock_t *pipe, void *args)
         }
     }
     zpoller_destroy (&poller);
-    // TODO: save/load the state
-    s_osrv_save (self);
+    int r = s_osrv_save (self);
+    if (r != 0)
+        zsys_error ("outage_actor: failed to save state file %s: %m", self->state_file);
     s_osrv_destroy (&self);
     zsys_info ("agent_outage: Ended");
 }

@@ -1,2 +1,3 @@
 usr/bin/bios-agent-outage
 usr/lib/systemd/system/bios-agent-outage*.service
+usr/lib/tmpfiles.d/bios-agent-outage.conf
