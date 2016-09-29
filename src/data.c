@@ -36,7 +36,7 @@
 typedef struct _expiration_t {
     uint64_t ttl_sec; // [s] minimal ttl seen for some asset
     uint64_t last_time_seen_sec; // [s] time when  some metrics were seen for this asset
-    bios_proto_t *msg;
+    bios_proto_t *msg; // asset represetation
 } expiration_t;
 
 static expiration_t*
@@ -69,6 +69,7 @@ expiration_destroy (expiration_t **self_p)
 static void
 expiration_update (expiration_t *self, uint64_t new_time_seen_sec)
 {
+    assert (self);
     // this will ensure, that we will not have 'experiation' time moving backwards!
     // Situation: at 03:33 metric with 24h average comes with 'time' = 00:00
     // ttl is 5 minutes -> new expiration date would be 00:05 BUT now already 3:33 !!
@@ -81,6 +82,7 @@ expiration_update (expiration_t *self, uint64_t new_time_seen_sec)
 static void
 expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
 {
+    assert (self);
     // ATTENTION: if minimum ttl for some asset is greater than DEFAULT_ASSET_EXPIRATION_TIME_SEC
     // it will be sending alerts every DEFAULT_ASSET_EXPIRATION_TIME_SEC
 
@@ -93,6 +95,7 @@ expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
 static uint64_t
 experiation_get (expiration_t *self)
 {
+    assert (self);
     return self->last_time_seen_sec + self->ttl_sec * 2;
 }
 
@@ -174,22 +177,21 @@ data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint
     assert (asset_name);
 
     expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name);
-    if ( e != NULL ) {
-        // we know information about this asset
-
-        // try to update ttl
-        expiration_update_ttl (e, ttl);
-        // need to compute new expiration time
-        if ( timestamp > now_sec )
-            return -1;
-        else {
-            expiration_update (e, timestamp);
-            if ( self->verbose )
-                zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
-        }
-    }
-    else {
+    if ( e == NULL ) {
         // asset is not known -> we are not interested in this asset -> do nothing
+        return 0;
+    }
+
+    // we know information about this asset
+    // try to update ttl
+    expiration_update_ttl (e, ttl);
+    // need to compute new expiration time
+    if ( timestamp > now_sec )
+        return -1;
+    else {
+        expiration_update (e, timestamp);
+        if ( self->verbose )
+            zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
     }
     return 0;
 }
@@ -217,36 +219,42 @@ data_put (data_t *self, bios_proto_t **proto_p)
         zsys_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
 
     // remove asset from cache
+    const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
     if (    streq (operation, BIOS_PROTO_ASSET_OP_DELETE) 
          || streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
     {
         data_delete (self, asset_name);
         if (self->verbose)
             zsys_debug ("asset: DELETED name=%s, operation=%s", asset_name, operation);
+        bios_proto_destroy (proto_p);
     }
     else
     // other asset operations - add ups, epdu or sensors to the cache if not present
-    if ( streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" ) ) {
-        const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
-        if (   streq (sub_type, "ups")
+    if (    streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" ) 
+         && (   streq (sub_type, "ups")
              || streq (sub_type, "epdu")
-             || streq (sub_type, "sensor"))
-        {
-            // this asset is not known yet -> add it to the cache
-            expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name );
-            if ( e == NULL ) {
-                e = expiration_new (self->default_expiry_sec, proto_p);
-                uint64_t now_sec = zclock_time() / 1000;
-                expiration_update (e, now_sec);
-                if ( self->verbose )
-                    zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
-                zhashx_insert (self->assets, asset_name, e);
-            }
-            else {
-                // intentionally left empty
-                // So, if we already knew this asset -> nothing to do
-            }
+             || streq (sub_type, "sensor")
+            )
+       )
+    {
+        // this asset is not known yet -> add it to the cache
+        expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name );
+        if ( e == NULL ) {
+            e = expiration_new (self->default_expiry_sec, proto_p);
+            uint64_t now_sec = zclock_time() / 1000;
+            expiration_update (e, now_sec);
+            if ( self->verbose )
+                zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
+            zhashx_insert (self->assets, asset_name, e);
         }
+        else {
+            bios_proto_destroy (proto_p);
+            // intentionally left empty
+            // So, if we already knew this asset -> nothing to do
+        }
+    }
+    else {
+        bios_proto_destroy (proto_p);
     }
 }
 
@@ -274,8 +282,8 @@ data_get_sensors (data_t *self, const char *port, const char *parent_name)
     assert (parent_name);
 
     zlist_t *sensors = zlist_new();
-    zlist_autofree (sensors);
     if ( sensors ) {
+        zlist_autofree (sensors);
         for ( expiration_t *asset = (expiration_t *) zhashx_first (self->assets); asset != NULL ; asset = (expiration_t *) zhashx_next (self->assets) ) {
             if (    streq (bios_proto_ext_string (asset->msg, "port", ""), port)
                  && streq (bios_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name) )
