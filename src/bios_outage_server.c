@@ -212,6 +212,27 @@ s_osrv_load (s_osrv_t *self)
     return 0;
 }
 
+static void
+s_osrv_check_dead_devices (s_osrv_t *self)
+{
+    assert (self);
+
+    if (self->verbose)
+        zsys_debug ("time to check dead devices");
+    zlistx_t *dead_devices = data_get_dead (self->assets);
+    if (self->verbose)
+        zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
+    for (void *it = zlistx_first (dead_devices);
+            it != NULL;
+            it = zlistx_next (dead_devices))
+    {
+        const char* source = (const char*) it;
+        if (self->verbose)
+            zsys_debug ("\tsource=%s", source);
+        s_osrv_activate_alert (self, source);
+    }
+    zlistx_destroy (&dead_devices);
+}
 
 /*
  * return values :
@@ -383,21 +404,7 @@ bios_outage_server (zsock_t *pipe, void *args)
 
         // send alerts
         if (zpoller_expired (poller) || (now_ms - last_dead_check_ms) > self->timeout_ms) {
-            if (self->verbose)
-                zsys_debug ("poll event");
-            zlistx_t *dead_devices = data_get_dead (self->assets);
-            if (self->verbose)
-                zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
-            for (void *it = zlistx_first (dead_devices);
-                       it != NULL;
-                       it = zlistx_next (dead_devices))
-            {
-                const char* source = (const char*) it;
-                if (self->verbose)
-                    zsys_debug ("\tsource=%s", source);
-                s_osrv_activate_alert (self, source);
-            }
-            zlistx_destroy (&dead_devices);
+            s_osrv_check_dead_devices (self);
             last_dead_check_ms = zclock_mono ();
         }
 
