@@ -282,8 +282,8 @@ data_get_sensors (data_t *self, const char *port, const char *parent_name)
     assert (parent_name);
 
     zlist_t *sensors = zlist_new();
-    zlist_autofree (sensors);
     if ( sensors ) {
+        zlist_autofree (sensors);
         for ( expiration_t *asset = (expiration_t *) zhashx_first (self->assets); asset != NULL ; asset = (expiration_t *) zhashx_next (self->assets) ) {
             if (    streq (bios_proto_ext_string (asset->msg, "port", ""), port)
                  && streq (bios_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name) )
