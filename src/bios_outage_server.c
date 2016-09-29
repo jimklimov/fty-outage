@@ -329,14 +329,14 @@ bios_outage_server (zsock_t *pipe, void *args)
     assert (self);
 
     zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (self->client), NULL);
-    assert(poller);
+    assert (poller);
 
     zsock_signal (pipe, 0);
     zsys_info ("agent_outage: Started");
     //    poller timeout
     uint64_t now_ms = zclock_mono ();
     uint64_t last_dead_check_ms = now_ms;
-    uint64_t last_save = now_ms;
+    uint64_t last_save_ms = now_ms;
 
     while (!zsys_interrupted)
     {
@@ -352,11 +352,11 @@ bios_outage_server (zsock_t *pipe, void *args)
         now_ms = zclock_mono ();
 
         // save the state
-        if ((now_ms - last_save) > SAVE_INTERVAL_MS) {
+        if ((now_ms - last_save_ms) > SAVE_INTERVAL_MS) {
             int r = s_osrv_save (self);
             if (r != 0)
                 zsys_error ("outage_actor: failed to save state file %s: %m", self->state_file);
-            last_save = now_ms;
+            last_save_ms = now_ms;
         }
 
         // send alerts
@@ -424,50 +424,55 @@ bios_outage_server (zsock_t *pipe, void *args)
             }
 
             bios_proto_t *bmsg = bios_proto_decode (&message);
-            if (bmsg) {
-                // resolve sent alert
-                if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
-                    const char *is_computed = bios_proto_aux_string (bmsg, "x-cm-count", NULL);
-                    if ( !is_computed ) {
-                        uint64_t now_sec = zclock_time() / 1000;
-                        uint64_t timestamp = bios_proto_aux_number (bmsg, "time", now_sec);
-                        if ( bios_proto_aux_string (bmsg, "port", NULL) != NULL ) {
-                            // is it from sensor? yes
-                            zlist_t *sources = data_get_sensors (self->assets, bios_proto_aux_string (bmsg, "port", NULL), bios_proto_element_src (bmsg));
-                            for ( char *source = (char *) zlist_first (sources); source != NULL ; source = (char *) zlist_next (sources) ) {
-                                if ( self->verbose )
-                                    zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  bios_proto_element_src (bmsg), bios_proto_aux_string (bmsg, "port", ""));
-                                s_osrv_resolve_alert (self, source);
-                                int rv = data_touch_asset (self->assets, source, timestamp, bios_proto_ttl (bmsg), now_sec);
-                                if ( rv == -1 )
-                                    zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
-                            }
-                            zlist_destroy (&sources);
-                        }
-                        else {
-                            // is it from sensor? no
-                            const char *source = bios_proto_element_src (bmsg);
+            if (!bmsg) 
+                continue;
+            
+            // resolve sent alert
+            if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
+                const char *is_computed = bios_proto_aux_string (bmsg, "x-cm-count", NULL);
+                if ( !is_computed ) {
+                    uint64_t now_sec = zclock_time() / 1000;
+                    uint64_t timestamp = bios_proto_aux_number (bmsg, "time", now_sec);
+                    if ( bios_proto_aux_string (bmsg, "port", NULL) != NULL ) {
+                        // is it from sensor? yes
+                        // get sensors attached to the 'asset' on the 'port'! we can have more then 1!
+                        zlist_t *sources = data_get_sensors (self->assets, bios_proto_aux_string (bmsg, "port", NULL), bios_proto_element_src (bmsg));
+                        for ( char *source = (char *) zlist_first (sources);
+                                    source != NULL ;
+                                    source = (char *) zlist_next (sources) )
+                        {
+                            if ( self->verbose )
+                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  bios_proto_element_src (bmsg), bios_proto_aux_string (bmsg, "port", ""));
                             s_osrv_resolve_alert (self, source);
                             int rv = data_touch_asset (self->assets, source, timestamp, bios_proto_ttl (bmsg), now_sec);
                             if ( rv == -1 )
                                 zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
                         }
+                        zlist_destroy (&sources);
                     }
                     else {
-                        // intentionally left empty
-                        // so it is metric from agent-cm -> it is not comming from the device itself ->ignore it
-                    }
-                }
-                else
-                if (bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
-                    if (    streq (bios_proto_operation (bmsg), BIOS_PROTO_ASSET_OP_DELETE)
-                         || streq (bios_proto_aux_string (bmsg, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
-                    {
-                        const char* source = bios_proto_name (bmsg);
+                        // is it from sensor? no
+                        const char *source = bios_proto_element_src (bmsg);
                         s_osrv_resolve_alert (self, source);
+                        int rv = data_touch_asset (self->assets, source, timestamp, bios_proto_ttl (bmsg), now_sec);
+                        if ( rv == -1 )
+                            zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
                     }
-                    data_put (self->assets, &bmsg);
                 }
+                else {
+                    // intentionally left empty
+                    // so it is metric from agent-cm -> it is not comming from the device itself ->ignore it
+                }
+            }
+            else
+            if (bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
+                if (    streq (bios_proto_operation (bmsg), BIOS_PROTO_ASSET_OP_DELETE)
+                     || streq (bios_proto_aux_string (bmsg, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
+                {
+                    const char* source = bios_proto_name (bmsg);
+                    s_osrv_resolve_alert (self, source);
+                }
+                data_put (self->assets, &bmsg);
             }
             bios_proto_destroy (&bmsg);
         }
