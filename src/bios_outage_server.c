@@ -220,6 +220,10 @@ s_osrv_check_dead_devices (s_osrv_t *self)
     if (self->verbose)
         zsys_debug ("time to check dead devices");
     zlistx_t *dead_devices = data_get_dead (self->assets);
+    if ( !dead_devices ) {
+        zsys_error ("Can't get a list of dead devices (memory error)");
+        return;
+    }
     if (self->verbose)
         zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
     for (void *it = zlistx_first (dead_devices);
