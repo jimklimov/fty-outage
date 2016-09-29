@@ -445,6 +445,37 @@ void test2 (bool verbose)
         zsys_info ("%s: OK", __func__);
 }
 
+void test3 (bool verbose)
+{
+    if ( verbose )
+        zsys_info ("%s: expiration update/update_ttl test", __func__);
+    
+    bios_proto_t *msg = bios_proto_new (BIOS_PROTO_ASSET);
+    expiration_t *e = expiration_new (10, &msg);
+    zclock_sleep (1000);
+    
+    uint64_t old_last_seen_date = e->last_time_seen_sec;
+    expiration_update (e, zclock_time() / 1000);
+    assert ( e->last_time_seen_sec != old_last_seen_date ); 
+   
+    // from past!! 
+    old_last_seen_date = e->last_time_seen_sec;
+    expiration_update (e, zclock_time() / 1000 - 10000);
+    assert ( e->last_time_seen_sec == old_last_seen_date );
+
+    expiration_update_ttl (e, 1);
+    assert ( e->ttl_sec == 1 );
+    
+    expiration_update_ttl (e, 10);
+    assert ( e->ttl_sec == 1 ); // because 10 > 1
+
+    assert ( experiation_get (e) == old_last_seen_date + 1 * 2 );    
+    expiration_destroy (&e);
+
+    if ( verbose )
+        zsys_info ("%s: OK", __func__);
+}
+
 //  --------------------------------------------------------------------------
 //  Self test of this class
 
@@ -458,6 +489,8 @@ data_test (bool verbose)
     test1 (verbose);
     
     test2 (verbose);
+    
+    test3 (verbose);
    
     //  aux data for metric - var_name | msg issued
     zhash_t *aux = zhash_new();
