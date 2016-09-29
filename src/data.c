@@ -219,6 +219,7 @@ data_put (data_t *self, bios_proto_t **proto_p)
         zsys_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
 
     // remove asset from cache
+    const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
     if (    streq (operation, BIOS_PROTO_ASSET_OP_DELETE) 
          || streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
     {
@@ -229,31 +230,31 @@ data_put (data_t *self, bios_proto_t **proto_p)
     }
     else
     // other asset operations - add ups, epdu or sensors to the cache if not present
-    if ( streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" ) ) {
-        const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
-        if (    streq (sub_type, "ups")
+    if (    streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" ) 
+         && (   streq (sub_type, "ups")
              || streq (sub_type, "epdu")
-             || streq (sub_type, "sensor"))
-        {
-            // this asset is not known yet -> add it to the cache
-            expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name );
-            if ( e == NULL ) {
-                e = expiration_new (self->default_expiry_sec, proto_p);
-                uint64_t now_sec = zclock_time() / 1000;
-                expiration_update (e, now_sec);
-                if ( self->verbose )
-                    zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
-                zhashx_insert (self->assets, asset_name, e);
-            }
-            else {
-                bios_proto_destroy (proto_p);
-                // intentionally left empty
-                // So, if we already knew this asset -> nothing to do
-            }
+             || streq (sub_type, "sensor")
+            )
+       )
+    {
+        // this asset is not known yet -> add it to the cache
+        expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name );
+        if ( e == NULL ) {
+            e = expiration_new (self->default_expiry_sec, proto_p);
+            uint64_t now_sec = zclock_time() / 1000;
+            expiration_update (e, now_sec);
+            if ( self->verbose )
+                zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
+            zhashx_insert (self->assets, asset_name, e);
         }
         else {
             bios_proto_destroy (proto_p);
+            // intentionally left empty
+            // So, if we already knew this asset -> nothing to do
         }
+    }
+    else {
+        bios_proto_destroy (proto_p);
     }
 }
 
