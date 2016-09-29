@@ -251,6 +251,9 @@ data_put (data_t *self, bios_proto_t **proto_p)
                 // So, if we already knew this asset -> nothing to do
             }
         }
+        else {
+            bios_proto_destroy (proto_p);
+        }
     }
 }
 
