@@ -93,7 +93,7 @@ expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
 }
 
 static uint64_t
-experiation_get (expiration_t *self)
+expiration_get (expiration_t *self)
 {
     assert (self);
     return self->last_time_seen_sec + self->ttl_sec * 2;
@@ -191,7 +191,7 @@ data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint
     else {
         expiration_update (e, timestamp);
         if ( self->verbose )
-            zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
+            zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, expiration_get (e));
     }
     return 0;
 }
@@ -244,7 +244,7 @@ data_put (data_t *self, bios_proto_t **proto_p)
             uint64_t now_sec = zclock_time() / 1000;
             expiration_update (e, now_sec);
             if ( self->verbose )
-                zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
+                zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, expiration_get (e));
             zhashx_insert (self->assets, asset_name, e);
         }
         else {
@@ -318,9 +318,9 @@ data_get_dead (data_t *self)
     {
         void *asset_name = (void*) zhashx_cursor(self->assets);
         if ( self->verbose ) {
-            zsys_debug ("asset: name=%s, ttl=%" PRIu64 ", expires_at=%" PRIu64, asset_name, e->ttl_sec, experiation_get (e));
+            zsys_debug ("asset: name=%s, ttl=%" PRIu64 ", expires_at=%" PRIu64, asset_name, e->ttl_sec, expiration_get (e));
         }
-        if ( experiation_get (e) <= now_sec)
+        if ( expiration_get (e) <= now_sec)
         {   
             assert(zlistx_add_start (dead, asset_name));
         }
@@ -336,7 +336,7 @@ zhashx_get_expiration_test (data_t *self, char *source)
 {
     assert(self);
     expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, source);
-    return experiation_get (e);
+    return expiration_get (e);
 }   
 
 // print content of zlistx
@@ -469,7 +469,7 @@ void test3 (bool verbose)
     expiration_update_ttl (e, 10);
     assert ( e->ttl_sec == 1 ); // because 10 > 1
 
-    assert ( experiation_get (e) == old_last_seen_date + 1 * 2 );    
+    assert ( expiration_get (e) == old_last_seen_date + 1 * 2 );    
     expiration_destroy (&e);
 
     if ( verbose )
