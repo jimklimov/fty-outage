@@ -225,6 +225,7 @@ data_put (data_t *self, bios_proto_t **proto_p)
         data_delete (self, asset_name);
         if (self->verbose)
             zsys_debug ("asset: DELETED name=%s, operation=%s", asset_name, operation);
+        bios_proto_destroy (proto_p);
     }
     else
     // other asset operations - add ups, epdu or sensors to the cache if not present
