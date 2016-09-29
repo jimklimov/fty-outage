@@ -36,7 +36,7 @@
 typedef struct _expiration_t {
     uint64_t ttl_sec; // [s] minimal ttl seen for some asset
     uint64_t last_time_seen_sec; // [s] time when  some metrics were seen for this asset
-    bios_proto_t *msg;
+    bios_proto_t *msg; // asset represetation
 } expiration_t;
 
 static expiration_t*
@@ -69,6 +69,7 @@ expiration_destroy (expiration_t **self_p)
 static void
 expiration_update (expiration_t *self, uint64_t new_time_seen_sec)
 {
+    assert (self);
     // this will ensure, that we will not have 'experiation' time moving backwards!
     // Situation: at 03:33 metric with 24h average comes with 'time' = 00:00
     // ttl is 5 minutes -> new expiration date would be 00:05 BUT now already 3:33 !!
@@ -81,6 +82,7 @@ expiration_update (expiration_t *self, uint64_t new_time_seen_sec)
 static void
 expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
 {
+    assert (self);
     // ATTENTION: if minimum ttl for some asset is greater than DEFAULT_ASSET_EXPIRATION_TIME_SEC
     // it will be sending alerts every DEFAULT_ASSET_EXPIRATION_TIME_SEC
 
@@ -93,6 +95,7 @@ expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
 static uint64_t
 experiation_get (expiration_t *self)
 {
+    assert (self);
     return self->last_time_seen_sec + self->ttl_sec * 2;
 }
 
@@ -174,22 +177,21 @@ data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint
     assert (asset_name);
 
     expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name);
-    if ( e != NULL ) {
-        // we know information about this asset
-
-        // try to update ttl
-        expiration_update_ttl (e, ttl);
-        // need to compute new expiration time
-        if ( timestamp > now_sec )
-            return -1;
-        else {
-            expiration_update (e, timestamp);
-            if ( self->verbose )
-                zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
-        }
-    }
-    else {
+    if ( e == NULL ) {
         // asset is not known -> we are not interested in this asset -> do nothing
+        return 0;
+    }
+
+    // we know information about this asset
+    // try to update ttl
+    expiration_update_ttl (e, ttl);
+    // need to compute new expiration time
+    if ( timestamp > now_sec )
+        return -1;
+    else {
+        expiration_update (e, timestamp);
+        if ( self->verbose )
+            zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, experiation_get (e));
     }
     return 0;
 }
