@@ -231,7 +231,7 @@ data_put (data_t *self, bios_proto_t **proto_p)
     // other asset operations - add ups, epdu or sensors to the cache if not present
     if ( streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" ) ) {
         const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
-        if (   streq (sub_type, "ups")
+        if (    streq (sub_type, "ups")
              || streq (sub_type, "epdu")
              || streq (sub_type, "sensor"))
         {
@@ -246,6 +246,7 @@ data_put (data_t *self, bios_proto_t **proto_p)
                 zhashx_insert (self->assets, asset_name, e);
             }
             else {
+                bios_proto_destroy (proto_p);
                 // intentionally left empty
                 // So, if we already knew this asset -> nothing to do
             }
