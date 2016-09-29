@@ -109,7 +109,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
 
 // if for asset 'source-asset' the 'outage' alert is tracked
 // * publish alert in RESOLVE state for asset 'source-asset' 
-// * removes alert from list of the active alerts
+// * removes alert from the list of the active alerts
 static void
 s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
 {
@@ -117,9 +117,31 @@ s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
     assert (source_asset);
 
     if (zhash_lookup (self->active_alerts, source_asset)) {
+        if (self->verbose)
+            zsys_debug ("\t\tsend RESOLVED alert for source=%s", source_asset);
         s_osrv_send_alert (self, source_asset, "RESOLVED");
         zhash_delete (self->active_alerts, source_asset);
     }
+}
+
+// if for asset 'source-asset' the 'outage' alert is NOT tracked
+// * publish alert in ACTIVE state for asset 'source-asset' 
+// * adds alert to the list of the active alerts
+static void
+s_osrv_activate_alert (s_osrv_t* self, const char* source_asset)
+{
+    assert (self);
+    assert (source_asset);
+
+    if ( !zhash_lookup (self->active_alerts, source_asset)) {
+        if (self->verbose)
+            zsys_debug ("\t\tsend ACTIVE alert for source=%s", source_asset);
+        s_osrv_send_alert (self, source_asset, "ACTIVE");
+        zhash_insert (self->active_alerts, source_asset, TRUE);
+    }
+    else
+        if (self->verbose)
+            zsys_debug ("\t\talert already active for source=%s", source_asset);
 }
 
 static int
@@ -190,6 +212,31 @@ s_osrv_load (s_osrv_t *self)
     return 0;
 }
 
+static void
+s_osrv_check_dead_devices (s_osrv_t *self)
+{
+    assert (self);
+
+    if (self->verbose)
+        zsys_debug ("time to check dead devices");
+    zlistx_t *dead_devices = data_get_dead (self->assets);
+    if ( !dead_devices ) {
+        zsys_error ("Can't get a list of dead devices (memory error)");
+        return;
+    }
+    if (self->verbose)
+        zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
+    for (void *it = zlistx_first (dead_devices);
+            it != NULL;
+            it = zlistx_next (dead_devices))
+    {
+        const char* source = (const char*) it;
+        if (self->verbose)
+            zsys_debug ("\tsource=%s", source);
+        s_osrv_activate_alert (self, source);
+    }
+    zlistx_destroy (&dead_devices);
+}
 
 /*
  * return values :
@@ -361,29 +408,7 @@ bios_outage_server (zsock_t *pipe, void *args)
 
         // send alerts
         if (zpoller_expired (poller) || (now_ms - last_dead_check_ms) > self->timeout_ms) {
-            if (self->verbose)
-                zsys_debug ("poll event");
-            zlistx_t *dead_devices = data_get_dead (self->assets);
-            if (self->verbose)
-                zsys_debug ("dead_devices.size=%zu", zlistx_size (dead_devices));
-            for (void *it = zlistx_first (dead_devices);
-                       it != NULL;
-                       it = zlistx_next (dead_devices))
-            {
-                const char* source = (const char*) it;
-                if (self->verbose)
-                    zsys_debug ("\tsource=%s", source);
-                if (!zhash_lookup (self->active_alerts, source)) {
-                    if (self->verbose)
-                        zsys_debug ("\t\tsend ACTIVE alert for source=%s", source);
-                    s_osrv_send_alert (self, source, "ACTIVE");
-                    zhash_insert (self->active_alerts, source, TRUE);
-                }
-                else
-                    if (self->verbose)
-                        zsys_debug ("\t\talert already active for source=%s", source);
-            }
-            zlistx_destroy (&dead_devices);
+            s_osrv_check_dead_devices (self);
             last_dead_check_ms = zclock_mono ();
         }
 
