@@ -1,34 +1,34 @@
 /*  =========================================================================
-    bios_outage_server - Bios outage server
+    fty_outage_server - 42ity outage server
 
-    Copyright (C) 2014 - 2015 Eaton
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
+    Copyright (C) 2014 - 2015 Eaton                                        
+                                                                           
+    This program is free software; you can redistribute it and/or modify   
+    it under the terms of the GNU General Public License as published by   
+    the Free Software Foundation; either version 2 of the License, or      
+    (at your option) any later version.                                    
+                                                                           
+    This program is distributed in the hope that it will be useful,        
+    but WITHOUT ANY WARRANTY; without even the implied warranty of         
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
+    GNU General Public License for more details.                           
+                                                                           
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
     =========================================================================
 */
 
 /*
 @header
-    bios_outage_server - Bios outage server
+    fty_outage_server - 42ity outage server
 @discuss
 @end
 */
 #define TIMEOUT_MS 30000   //wait at least 30 seconds
 #define SAVE_INTERVAL_MS 45*60*1000 // store state each 45 minutes
 
-#include "agent_outage_classes.h"
+#include "fty_outage_classes.h"
 #include "data.h"
     
 static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
@@ -86,7 +86,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     assert (source_asset);
     assert (alert_state);
 
-    zmsg_t *msg = bios_proto_encode_alert (
+    zmsg_t *msg = fty_proto_encode_alert (
             NULL, // aux
             "outage", // rule_name
             source_asset,
@@ -368,9 +368,9 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
 }
 
 // --------------------------------------------------------------------------
-// Create a new bios_outage_server
+// Create a new fty_outage_server
 void
-bios_outage_server (zsock_t *pipe, void *args)
+fty_outage_server (zsock_t *pipe, void *args)
 {
     s_osrv_t *self = s_osrv_new ();
     assert (self);
@@ -432,8 +432,8 @@ bios_outage_server (zsock_t *pipe, void *args)
             if (!message)
                 break;
 
-            if (!is_bios_proto(message)) {
-                if (streq (mlm_client_address (self->client), BIOS_PROTO_STREAM_METRICS_UNAVAILABLE)) {
+            if (!is_fty_proto(message)) {
+                if (streq (mlm_client_address (self->client), FTY_PROTO_STREAM_METRICS_UNAVAILABLE)) {
                     char *foo = zmsg_popstr (message);
                     if ( foo && streq (foo, "METRICUNAVAILABLE")) {
                         zstr_free (&foo);
@@ -448,28 +448,28 @@ bios_outage_server (zsock_t *pipe, void *args)
                 continue;
             }
 
-            bios_proto_t *bmsg = bios_proto_decode (&message);
+            fty_proto_t *bmsg = fty_proto_decode (&message);
             if (!bmsg) 
                 continue;
             
             // resolve sent alert
-            if (bios_proto_id (bmsg) == BIOS_PROTO_METRIC) {
-                const char *is_computed = bios_proto_aux_string (bmsg, "x-cm-count", NULL);
+            if (fty_proto_id (bmsg) == FTY_PROTO_METRIC) {
+                const char *is_computed = fty_proto_aux_string (bmsg, "x-cm-count", NULL);
                 if ( !is_computed ) {
                     uint64_t now_sec = zclock_time() / 1000;
-                    uint64_t timestamp = bios_proto_aux_number (bmsg, "time", now_sec);
-                    if ( bios_proto_aux_string (bmsg, "port", NULL) != NULL ) {
+                    uint64_t timestamp = fty_proto_aux_number (bmsg, "time", now_sec);
+                    if ( fty_proto_aux_string (bmsg, "port", NULL) != NULL ) {
                         // is it from sensor? yes
                         // get sensors attached to the 'asset' on the 'port'! we can have more then 1!
-                        zlist_t *sources = data_get_sensors (self->assets, bios_proto_aux_string (bmsg, "port", NULL), bios_proto_element_src (bmsg));
+                        zlist_t *sources = data_get_sensors (self->assets, fty_proto_aux_string (bmsg, "port", NULL), fty_proto_element_src (bmsg));
                         for ( char *source = (char *) zlist_first (sources);
                                     source != NULL ;
                                     source = (char *) zlist_next (sources) )
                         {
                             if ( self->verbose )
-                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  bios_proto_element_src (bmsg), bios_proto_aux_string (bmsg, "port", ""));
+                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  fty_proto_element_src (bmsg), fty_proto_aux_string (bmsg, "port", ""));
                             s_osrv_resolve_alert (self, source);
-                            int rv = data_touch_asset (self->assets, source, timestamp, bios_proto_ttl (bmsg), now_sec);
+                            int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
                             if ( rv == -1 )
                                 zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
                         }
@@ -477,9 +477,9 @@ bios_outage_server (zsock_t *pipe, void *args)
                     }
                     else {
                         // is it from sensor? no
-                        const char *source = bios_proto_element_src (bmsg);
+                        const char *source = fty_proto_element_src (bmsg);
                         s_osrv_resolve_alert (self, source);
-                        int rv = data_touch_asset (self->assets, source, timestamp, bios_proto_ttl (bmsg), now_sec);
+                        int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
                         if ( rv == -1 )
                             zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
                     }
@@ -490,16 +490,16 @@ bios_outage_server (zsock_t *pipe, void *args)
                 }
             }
             else
-            if (bios_proto_id (bmsg) == BIOS_PROTO_ASSET) {
-                if (    streq (bios_proto_operation (bmsg), BIOS_PROTO_ASSET_OP_DELETE)
-                     || streq (bios_proto_aux_string (bmsg, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
+            if (fty_proto_id (bmsg) == FTY_PROTO_ASSET) {
+                if (    streq (fty_proto_operation (bmsg), FTY_PROTO_ASSET_OP_DELETE)
+                     || streq (fty_proto_aux_string (bmsg, FTY_PROTO_ASSET_STATUS, ""), "retired") )
                 {
-                    const char* source = bios_proto_name (bmsg);
+                    const char* source = fty_proto_name (bmsg);
                     s_osrv_resolve_alert (self, source);
                 }
                 data_put (self->assets, &bmsg);
             }
-            bios_proto_destroy (&bmsg);
+            fty_proto_destroy (&bmsg);
         }
     }
     zpoller_destroy (&poller);
@@ -510,14 +510,13 @@ bios_outage_server (zsock_t *pipe, void *args)
     zsys_info ("agent_outage: Ended");
 }
 
-
 // --------------------------------------------------------------------------
 // Self test of this class
 
 void
-bios_outage_server_test (bool verbose)
+fty_outage_server_test (bool verbose)
 {
-    printf (" * bios_outage_server: \n");
+    printf (" * fty_outage_server: \n");
 
     //     @selftest
     static const char *endpoint =  "inproc://malamute-test2";
@@ -544,7 +543,7 @@ bios_outage_server_test (bool verbose)
     rv = mlm_client_set_consumer (consumer, "_ALERTS_SYS", ".*");
     assert (rv >= 0);
 
-    zactor_t *self = zactor_new (bios_outage_server, (void*) NULL);
+    zactor_t *self = zactor_new (fty_outage_server, (void*) NULL);
     assert (self);
 
     //    actor commands
@@ -566,12 +565,12 @@ bios_outage_server_test (bool verbose)
     zhash_t *asset_aux = zhash_new ();
     zhash_insert (asset_aux, "type", "device");
     zhash_insert (asset_aux, "subtype", "ups");
-    zmsg_t *sendmsg = bios_proto_encode_asset (asset_aux, "UPS33", "create", NULL);
+    zmsg_t *sendmsg = fty_proto_encode_asset (asset_aux, "UPS33", "create", NULL);
     zhash_destroy (&asset_aux);
     rv = mlm_client_send (a_sender, "subject",  &sendmsg);
 
     // expected: ACTIVE alert to be sent
-    sendmsg = bios_proto_encode_metric (
+    sendmsg = fty_proto_encode_metric (
         NULL,
         "dev",
         "UPS33",
@@ -585,17 +584,17 @@ bios_outage_server_test (bool verbose)
 
     zmsg_t *msg = mlm_client_recv (consumer);
     assert (msg);
-    bios_proto_t *bmsg = bios_proto_decode (&msg);
+    fty_proto_t *bmsg = fty_proto_decode (&msg);
     assert (bmsg);
     if (verbose)
-        bios_proto_print (bmsg);
-    assert (streq (bios_proto_element_src (bmsg), "UPS33"));
-    assert (streq (bios_proto_state (bmsg), "ACTIVE"));
-    bios_proto_destroy (&bmsg);
+        fty_proto_print (bmsg);
+    assert (streq (fty_proto_element_src (bmsg), "UPS33"));
+    assert (streq (fty_proto_state (bmsg), "ACTIVE"));
+    fty_proto_destroy (&bmsg);
 
     // test case 02 to resolve alert by sending an another metric
     // expected: RESOLVED alert to be sent
-    sendmsg = bios_proto_encode_metric (
+    sendmsg = fty_proto_encode_metric (
         NULL,
         "dev",
         "UPS33",
@@ -608,32 +607,32 @@ bios_outage_server_test (bool verbose)
 
     msg = mlm_client_recv (consumer);
     assert (msg);
-    bmsg = bios_proto_decode (&msg);
+    bmsg = fty_proto_decode (&msg);
     assert (bmsg);
     if (verbose)
-        bios_proto_print (bmsg);
-    assert (streq (bios_proto_element_src (bmsg), "UPS33"));
-    assert (streq (bios_proto_state (bmsg), "RESOLVED"));
-    bios_proto_destroy (&bmsg);
+        fty_proto_print (bmsg);
+    assert (streq (fty_proto_element_src (bmsg), "UPS33"));
+    assert (streq (fty_proto_state (bmsg), "RESOLVED"));
+    fty_proto_destroy (&bmsg);
 
     //  cleanup from test case 02 - delete asset from cache
-    sendmsg = bios_proto_encode_asset (
+    sendmsg = fty_proto_encode_asset (
         NULL,
         "UPS33",
-        BIOS_PROTO_ASSET_OP_DELETE,
+        FTY_PROTO_ASSET_OP_DELETE,
         NULL);
     rv = mlm_client_send (m_sender, "subject",  &sendmsg);
     assert (rv >= 0);
 
     // test case 03: add new asset device, wait expiry time and check the alert
     zhash_t *aux = zhash_new ();
-    zhash_insert (aux, BIOS_PROTO_ASSET_TYPE, "device");
-    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "ups");
-    zhash_insert (aux, BIOS_PROTO_ASSET_STATUS, "active");
-    sendmsg = bios_proto_encode_asset (
+    zhash_insert (aux, FTY_PROTO_ASSET_TYPE, "device");
+    zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, "ups");
+    zhash_insert (aux, FTY_PROTO_ASSET_STATUS, "active");
+    sendmsg = fty_proto_encode_asset (
         aux,
         "UPS42",
-        BIOS_PROTO_ASSET_OP_CREATE,
+        FTY_PROTO_ASSET_OP_CREATE,
         NULL);
     zhash_destroy (&aux);
     rv = mlm_client_send (m_sender, "UPS42",  &sendmsg);
@@ -641,23 +640,23 @@ bios_outage_server_test (bool verbose)
 
     msg = mlm_client_recv (consumer);
     assert (msg);
-    bmsg = bios_proto_decode (&msg);
+    bmsg = fty_proto_decode (&msg);
     assert (bmsg);
     if (verbose)
-        bios_proto_print (bmsg);
-    assert (streq (bios_proto_element_src (bmsg), "UPS42"));
-    assert (streq (bios_proto_state (bmsg), "ACTIVE"));
-    bios_proto_destroy (&bmsg);
+        fty_proto_print (bmsg);
+    assert (streq (fty_proto_element_src (bmsg), "UPS42"));
+    assert (streq (fty_proto_state (bmsg), "ACTIVE"));
+    fty_proto_destroy (&bmsg);
 
     // test case 04: RESOLVE alert when device is retired
     aux = zhash_new ();
-    zhash_insert (aux, BIOS_PROTO_ASSET_TYPE, "device");
-    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "ups");
-    zhash_insert (aux, BIOS_PROTO_ASSET_STATUS, "retired");
-    sendmsg = bios_proto_encode_asset (
+    zhash_insert (aux, FTY_PROTO_ASSET_TYPE, "device");
+    zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, "ups");
+    zhash_insert (aux, FTY_PROTO_ASSET_STATUS, "retired");
+    sendmsg = fty_proto_encode_asset (
         aux,
         "UPS42",
-        BIOS_PROTO_ASSET_OP_UPDATE,
+        FTY_PROTO_ASSET_OP_UPDATE,
         NULL);
     zhash_destroy (&aux);
     rv = mlm_client_send (m_sender, "UPS42",  &sendmsg);
@@ -665,13 +664,13 @@ bios_outage_server_test (bool verbose)
 
     msg = mlm_client_recv (consumer);
     assert (msg);
-    bmsg = bios_proto_decode (&msg);
+    bmsg = fty_proto_decode (&msg);
     assert (bmsg);
     if (verbose)
-        bios_proto_print (bmsg);
-    assert (streq (bios_proto_element_src (bmsg), "UPS42"));
-    assert (streq (bios_proto_state (bmsg), "RESOLVED"));
-    bios_proto_destroy (&bmsg);
+        fty_proto_print (bmsg);
+    assert (streq (fty_proto_element_src (bmsg), "UPS42"));
+    assert (streq (fty_proto_state (bmsg), "RESOLVED"));
+    fty_proto_destroy (&bmsg);
 
     zactor_destroy(&self);
     mlm_client_destroy (&m_sender);

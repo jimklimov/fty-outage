@@ -19,9 +19,8 @@ save.xml
 *.lo
 
 # Executables
-src/agent-outage_selftest
-src/bios-agent-outage
-src/agent_outage_selftest
+src/fty-agent-outage
+src/fty_outage_selftest
 *.exe
 *.out
 *.app
@@ -85,3 +84,7 @@ build/
 # Temporary files
 *.swp
 *~
+*.bak
+
+# CMake build directory
+builds/

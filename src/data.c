@@ -26,7 +26,7 @@
 @end
 */
 
-#include "agent_outage_classes.h"
+#include "fty_outage_classes.h"
 
 // it is used as TTL, but in formula we are waiting for ttl*2 ->
 // so if we here would have 15 minutes-> the first alert will come in 30 minutes
@@ -36,11 +36,11 @@
 typedef struct _expiration_t {
     uint64_t ttl_sec; // [s] minimal ttl seen for some asset
     uint64_t last_time_seen_sec; // [s] time when  some metrics were seen for this asset
-    bios_proto_t *msg; // asset represetation
+    fty_proto_t *msg; // asset represetation
 } expiration_t;
 
 static expiration_t*
-expiration_new (uint64_t default_expiry_sec, bios_proto_t **msg_p)
+expiration_new (uint64_t default_expiry_sec, fty_proto_t **msg_p)
 {
     assert (msg_p);
     expiration_t *self = (expiration_t *) zmalloc (sizeof (expiration_t));
@@ -58,7 +58,7 @@ expiration_destroy (expiration_t **self_p)
     assert (self_p);
     if (*self_p) {
         expiration_t *self = *self_p;
-        bios_proto_destroy (&self->msg);
+        fty_proto_destroy (&self->msg);
         free (self);
         *self_p = NULL;
     }
@@ -199,38 +199,38 @@ data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint
 //  ------------------------------------------------------------------------
 //  put data 
 void
-data_put (data_t *self, bios_proto_t **proto_p) 
+data_put (data_t *self, fty_proto_t **proto_p) 
 {
     assert (self);
     assert (proto_p);
 
-    bios_proto_t *proto = *proto_p;
+    fty_proto_t *proto = *proto_p;
     if ( proto == NULL )
         return;
 
-    if (bios_proto_id (proto) != BIOS_PROTO_ASSET) {
-        bios_proto_destroy (proto_p);
+    if (fty_proto_id (proto) != FTY_PROTO_ASSET) {
+        fty_proto_destroy (proto_p);
         return;
     }
 
-    const char *operation = bios_proto_operation (proto);
-    const char *asset_name = bios_proto_name (proto);
+    const char *operation = fty_proto_operation (proto);
+    const char *asset_name = fty_proto_name (proto);
     if (self->verbose)
         zsys_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
 
     // remove asset from cache
-    const char* sub_type = bios_proto_aux_string (proto, BIOS_PROTO_ASSET_SUBTYPE, "");
-    if (    streq (operation, BIOS_PROTO_ASSET_OP_DELETE) 
-         || streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_STATUS, ""), "retired") )
+    const char* sub_type = fty_proto_aux_string (proto, FTY_PROTO_ASSET_SUBTYPE, "");
+    if (    streq (operation, FTY_PROTO_ASSET_OP_DELETE) 
+         || streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_STATUS, ""), "retired") )
     {
         data_delete (self, asset_name);
         if (self->verbose)
             zsys_debug ("asset: DELETED name=%s, operation=%s", asset_name, operation);
-        bios_proto_destroy (proto_p);
+        fty_proto_destroy (proto_p);
     }
     else
     // other asset operations - add ups, epdu or sensors to the cache if not present
-    if (    streq (bios_proto_aux_string (proto, BIOS_PROTO_ASSET_TYPE, ""), "device" ) 
+    if (    streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_TYPE, ""), "device" ) 
          && (   streq (sub_type, "ups")
              || streq (sub_type, "epdu")
              || streq (sub_type, "sensor")
@@ -248,13 +248,13 @@ data_put (data_t *self, bios_proto_t **proto_p)
             zhashx_insert (self->assets, asset_name, e);
         }
         else {
-            bios_proto_destroy (proto_p);
+            fty_proto_destroy (proto_p);
             // intentionally left empty
             // So, if we already knew this asset -> nothing to do
         }
     }
     else {
-        bios_proto_destroy (proto_p);
+        fty_proto_destroy (proto_p);
     }
 }
 
@@ -285,10 +285,10 @@ data_get_sensors (data_t *self, const char *port, const char *parent_name)
     if ( sensors ) {
         zlist_autofree (sensors);
         for ( expiration_t *asset = (expiration_t *) zhashx_first (self->assets); asset != NULL ; asset = (expiration_t *) zhashx_next (self->assets) ) {
-            if (    streq (bios_proto_ext_string (asset->msg, "port", ""), port)
-                 && streq (bios_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name) )
+            if (    streq (fty_proto_ext_string (asset->msg, "port", ""), port)
+                 && streq (fty_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name) )
             {
-                zlist_push (sensors, (void *) bios_proto_name (asset->msg));
+                zlist_push (sensors, (void *) fty_proto_name (asset->msg));
             }
         }
     }
@@ -355,13 +355,13 @@ zlistx_print_dead (zlistx_t *self) {
 static void
 test_data_add_sensor (data_t *data, const char *asset_name, const char *port, const char *parent_name)
 {
-    bios_proto_t *asset = bios_proto_new (BIOS_PROTO_ASSET);
-    bios_proto_set_name (asset, asset_name);
-    bios_proto_set_operation (asset, "create");
-    bios_proto_ext_insert (asset, "port", port);
-    bios_proto_aux_insert (asset, "type", "device");
-    bios_proto_aux_insert (asset, "subtype", "sensor");
-    bios_proto_aux_insert (asset, "parent_name.1", parent_name);
+    fty_proto_t *asset = fty_proto_new (FTY_PROTO_ASSET);
+    fty_proto_set_name (asset, asset_name);
+    fty_proto_set_operation (asset, "create");
+    fty_proto_ext_insert (asset, "port", port);
+    fty_proto_aux_insert (asset, "type", "device");
+    fty_proto_aux_insert (asset, "subtype", "sensor");
+    fty_proto_aux_insert (asset, "parent_name.1", parent_name);
 
     data_put (data, &asset);
 }
@@ -437,7 +437,7 @@ void test2 (bool verbose)
     if ( verbose )
         zsys_info ("%s: expiration new/destroy test", __func__);
 
-    bios_proto_t *msg = bios_proto_new (BIOS_PROTO_ASSET);
+    fty_proto_t *msg = fty_proto_new (FTY_PROTO_ASSET);
     expiration_t *e = expiration_new(10, &msg);
     
     expiration_destroy (&e);
@@ -450,7 +450,7 @@ void test3 (bool verbose)
     if ( verbose )
         zsys_info ("%s: expiration update/update_ttl test", __func__);
     
-    bios_proto_t *msg = bios_proto_new (BIOS_PROTO_ASSET);
+    fty_proto_t *msg = fty_proto_new (FTY_PROTO_ASSET);
     expiration_t *e = expiration_new (10, &msg);
     zclock_sleep (1000);
     
@@ -514,16 +514,16 @@ data_test (bool verbose)
     zhash_t *asset_aux = zhash_new ();
     zhash_insert (asset_aux, "type", "device");
     zhash_insert (asset_aux, "subtype", "ups");
-    zmsg_t *asset = bios_proto_encode_asset (asset_aux, "UPS4", "create", NULL);
-    bios_proto_t *proto_n = bios_proto_decode (&asset);
+    zmsg_t *asset = fty_proto_encode_asset (asset_aux, "UPS4", "create", NULL);
+    fty_proto_t *proto_n = fty_proto_decode (&asset);
     data_put(data, &proto_n);
     zhash_destroy (&asset_aux);
 
     asset_aux = zhash_new ();
     zhash_insert (asset_aux, "type", "device");
     zhash_insert (asset_aux, "subtype", "ups");
-    asset = bios_proto_encode_asset (asset_aux, "UPS3", "create", NULL);
-    proto_n = bios_proto_decode (&asset);
+    asset = fty_proto_encode_asset (asset_aux, "UPS3", "create", NULL);
+    proto_n = fty_proto_decode (&asset);
     data_put(data, &proto_n);
     zhash_destroy (&asset_aux);
 
@@ -560,9 +560,9 @@ data_test (bool verbose)
     aux = zhash_new ();
     zhash_insert (aux, "status", "active");
     zhash_insert (aux, "type", "device");
-    zhash_insert (aux, BIOS_PROTO_ASSET_SUBTYPE, "epdu");
-    zmsg_t *msg = bios_proto_encode_asset (aux, "PDU1", BIOS_PROTO_ASSET_OP_CREATE, NULL);
-    bios_proto_t* bmsg = bios_proto_decode (&msg);
+    zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, "epdu");
+    zmsg_t *msg = fty_proto_encode_asset (aux, "PDU1", FTY_PROTO_ASSET_OP_CREATE, NULL);
+    fty_proto_t* bmsg = fty_proto_decode (&msg);
     data_put (data, &bmsg);
 
     assert (zhashx_lookup (data->assets, "PDU1"));
@@ -574,7 +574,7 @@ data_test (bool verbose)
     // TODO: test it more
      
     zlistx_destroy(&list);
-    bios_proto_destroy(&proto_n);
+    fty_proto_destroy(&proto_n);
     zhash_destroy(&aux);
     data_destroy (&data);
 
