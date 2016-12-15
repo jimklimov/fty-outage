@@ -1,2 +1,0 @@
-usr/bin/bios-agent-outage
-usr/lib/systemd/system/bios-agent-outage*.service

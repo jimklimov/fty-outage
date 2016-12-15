@@ -1,5 +1,5 @@
 /*  =========================================================================
-    agent-outage - generated layer of public API
+    fty-outage - generated layer of public API
 
     Copyright (C) 2014 - 2015 Eaton                                        
                                                                            
@@ -24,55 +24,61 @@
     =========================================================================
 */
 
-#ifndef AGENT_OUTAGE_LIBRARY_H_INCLUDED
-#define AGENT_OUTAGE_LIBRARY_H_INCLUDED
+#ifndef FTY_OUTAGE_LIBRARY_H_INCLUDED
+#define FTY_OUTAGE_LIBRARY_H_INCLUDED
 
 //  Set up environment for the application
 
 //  External dependencies
 #include <czmq.h>
 #include <malamute.h>
-#include <biosproto.h>
+#include <fty_proto.h>
 
-//  AGENT_OUTAGE version macros for compile-time API detection
-#define AGENT_OUTAGE_VERSION_MAJOR 0
-#define AGENT_OUTAGE_VERSION_MINOR 1
-#define AGENT_OUTAGE_VERSION_PATCH 0
+//  FTY_OUTAGE version macros for compile-time API detection
+#define FTY_OUTAGE_VERSION_MAJOR 0
+#define FTY_OUTAGE_VERSION_MINOR 1
+#define FTY_OUTAGE_VERSION_PATCH 0
 
-#define AGENT_OUTAGE_MAKE_VERSION(major, minor, patch) \
+#define FTY_OUTAGE_MAKE_VERSION(major, minor, patch) \
     ((major) * 10000 + (minor) * 100 + (patch))
-#define AGENT_OUTAGE_VERSION \
-    AGENT_OUTAGE_MAKE_VERSION(AGENT_OUTAGE_VERSION_MAJOR, AGENT_OUTAGE_VERSION_MINOR, AGENT_OUTAGE_VERSION_PATCH)
+#define FTY_OUTAGE_VERSION \
+    FTY_OUTAGE_MAKE_VERSION(FTY_OUTAGE_VERSION_MAJOR, FTY_OUTAGE_VERSION_MINOR, FTY_OUTAGE_VERSION_PATCH)
 
 #if defined (__WINDOWS__)
-#   if defined AGENT_OUTAGE_STATIC
-#       define AGENT_OUTAGE_EXPORT
-#   elif defined AGENT_OUTAGE_EXPORTS
-#       define AGENT_OUTAGE_EXPORT __declspec(dllexport)
+#   if defined FTY_OUTAGE_STATIC
+#       define FTY_OUTAGE_EXPORT
+#   elif defined FTY_OUTAGE_INTERNAL_BUILD
+#       if defined DLL_EXPORT
+#           define FTY_OUTAGE_EXPORT __declspec(dllexport)
+#       else
+#           define FTY_OUTAGE_EXPORT
+#       endif
+#   elif defined FTY_OUTAGE_EXPORTS
+#       define FTY_OUTAGE_EXPORT __declspec(dllexport)
 #   else
-#       define AGENT_OUTAGE_EXPORT __declspec(dllimport)
+#       define FTY_OUTAGE_EXPORT __declspec(dllimport)
 #   endif
 #else
-#   define AGENT_OUTAGE_EXPORT
+#   define FTY_OUTAGE_EXPORT
 #endif
 
 //  Project has no stable classes, so we build the draft API
-#undef  AGENT_OUTAGE_BUILD_DRAFT_API
-#define AGENT_OUTAGE_BUILD_DRAFT_API
+#undef  FTY_OUTAGE_BUILD_DRAFT_API
+#define FTY_OUTAGE_BUILD_DRAFT_API
 
 //  Opaque class structures to allow forward references
 //  These classes are stable or legacy and built in all releases
 //  Draft classes are by default not built in stable releases
-#ifdef AGENT_OUTAGE_BUILD_DRAFT_API
-typedef struct _bios_outage_server_t bios_outage_server_t;
-#define BIOS_OUTAGE_SERVER_T_DEFINED
-#endif // AGENT_OUTAGE_BUILD_DRAFT_API
+#ifdef FTY_OUTAGE_BUILD_DRAFT_API
+typedef struct _fty_outage_server_t fty_outage_server_t;
+#define FTY_OUTAGE_SERVER_T_DEFINED
+#endif // FTY_OUTAGE_BUILD_DRAFT_API
 
 
 //  Public classes, each with its own header file
-#ifdef AGENT_OUTAGE_BUILD_DRAFT_API
-#include "bios_outage_server.h"
-#endif // AGENT_OUTAGE_BUILD_DRAFT_API
+#ifdef FTY_OUTAGE_BUILD_DRAFT_API
+#include "fty_outage_server.h"
+#endif // FTY_OUTAGE_BUILD_DRAFT_API
 
 #endif
 /*

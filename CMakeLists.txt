@@ -7,18 +7,24 @@
 # Project setup
 ########################################################################
 cmake_minimum_required(VERSION 2.8)
-project(agent_outage)
+project(fty_outage)
 enable_language(C)
 enable_testing()
 
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+# Select flags
+SET(CMAKE_C_FLAGS_RELEASE "-O3")
+
+# Will be used to add flags to pkg-config useful when apps want to statically link
+set(pkg_config_libs_private "")
 
 ########################################################################
 # options
 ########################################################################
 OPTION (ENABLE_DRAFTS "Build and install draft classes and methods" ON)
 IF (ENABLE_DRAFTS)
-    ADD_DEFINITIONS (-DAGENT_OUTAGE_BUILD_DRAFT_API)
+    ADD_DEFINITIONS (-DFTY_OUTAGE_BUILD_DRAFT_API)
 ENDIF (ENABLE_DRAFTS)
 
 ########################################################################
@@ -80,6 +86,7 @@ find_package(libzmq REQUIRED)
 IF (LIBZMQ_FOUND)
     include_directories(${LIBZMQ_INCLUDE_DIRS})
     list(APPEND MORE_LIBRARIES ${LIBZMQ_LIBRARIES})
+    set(pkg_config_libs_private "${pkg_config_libs_private} -lzmq")
 ELSE (LIBZMQ_FOUND)
     message( FATAL_ERROR "libzmq not found." )
 ENDIF (LIBZMQ_FOUND)
@@ -91,6 +98,7 @@ find_package(czmq REQUIRED)
 IF (CZMQ_FOUND)
     include_directories(${CZMQ_INCLUDE_DIRS})
     list(APPEND MORE_LIBRARIES ${CZMQ_LIBRARIES})
+    set(pkg_config_libs_private "${pkg_config_libs_private} -lczmq")
 ELSE (CZMQ_FOUND)
     message( FATAL_ERROR "czmq not found." )
 ENDIF (CZMQ_FOUND)
@@ -102,69 +110,71 @@ find_package(malamute REQUIRED)
 IF (MALAMUTE_FOUND)
     include_directories(${MALAMUTE_INCLUDE_DIRS})
     list(APPEND MORE_LIBRARIES ${MALAMUTE_LIBRARIES})
+    set(pkg_config_libs_private "${pkg_config_libs_private} -lmlm")
 ELSE (MALAMUTE_FOUND)
     message( FATAL_ERROR "malamute not found." )
 ENDIF (MALAMUTE_FOUND)
 
 ########################################################################
-# BIOSPROTO dependency
+# FTY-PROTO dependency
 ########################################################################
-find_package(biosproto REQUIRED)
-IF (BIOSPROTO_FOUND)
-    include_directories(${BIOSPROTO_INCLUDE_DIRS})
-    list(APPEND MORE_LIBRARIES ${BIOSPROTO_LIBRARIES})
-ELSE (BIOSPROTO_FOUND)
-    message( FATAL_ERROR "biosproto not found." )
-ENDIF (BIOSPROTO_FOUND)
+find_package(fty-proto REQUIRED)
+IF (FTY-PROTO_FOUND)
+    include_directories(${FTY-PROTO_INCLUDE_DIRS})
+    list(APPEND MORE_LIBRARIES ${FTY-PROTO_LIBRARIES})
+    set(pkg_config_libs_private "${pkg_config_libs_private} -lfty_proto")
+ELSE (FTY-PROTO_FOUND)
+    message( FATAL_ERROR "fty-proto not found." )
+ENDIF (FTY-PROTO_FOUND)
 
 ########################################################################
 # includes
 ########################################################################
-set (agent_outage_headers
-    include/agent_outage_library.h
-    include/agent_outage.h
+set (fty_outage_headers
+    include/fty_outage_library.h
+    include/fty_outage.h
     src/data.h
 )
 
 IF (ENABLE_DRAFTS)
-    list(APPEND agent_outage_headers
-        include/bios_outage_server.h
+    list(APPEND fty_outage_headers
+        include/fty_outage_server.h
     )
 ENDIF (ENABLE_DRAFTS)
 
-source_group ("Header Files" FILES ${agent_outage_headers})
-install(FILES ${agent_outage_headers} DESTINATION include)
+source_group ("Header Files" FILES ${fty_outage_headers})
+install(FILES ${fty_outage_headers} DESTINATION include)
 
 ########################################################################
 # library
 ########################################################################
 include_directories("${SOURCE_DIR}/src" "${SOURCE_DIR}/include")
-set (agent_outage_sources
+set (fty_outage_sources
     src/data.c
 )
 
 IF (ENABLE_DRAFTS)
-    list (APPEND agent_outage_sources
-        src/bios_outage_server.c
+    list (APPEND fty_outage_sources
+        src/fty_outage_server.c
     )
 ENDIF (ENABLE_DRAFTS)
 
-source_group("Source Files" FILES ${agent_outage_sources})
+source_group("Source Files" FILES ${fty_outage_sources})
 if (NOT DEFINED BUILD_SHARED_LIBS)
     SET(BUILD_SHARED_LIBS ON)
 endif()
-add_library(agent_outage ${agent_outage_sources})
-set_target_properties(agent_outage
-    PROPERTIES DEFINE_SYMBOL "LIBAGENT_OUTAGE_EXPORTS"
+add_library(fty_outage ${fty_outage_sources})
+set_target_properties(fty_outage
+    PROPERTIES DEFINE_SYMBOL "FTY_OUTAGE_EXPORTS"
 )
-set_target_properties(agent_outage
+set_target_properties(fty_outage
     PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
 )
-target_link_libraries(agent_outage
+target_link_libraries(fty_outage
     ${ZEROMQ_LIBRARIES} ${MORE_LIBRARIES}
 )
 
-install(TARGETS agent_outage
+install(TARGETS fty_outage
     LIBRARY DESTINATION "lib${LIB_SUFFIX}" # .so file
     ARCHIVE DESTINATION "lib${LIB_SUFFIX}" # .lib file
     RUNTIME DESTINATION bin              # .dll file
@@ -179,17 +189,17 @@ set (exec_prefix "\${prefix}")
 set (libdir "\${prefix}/lib${LIB_SUFFIX}")
 set (includedir "\${prefix}/include")
 IF (ENABLE_DRAFTS)
-    set (pkg_config_defines "-DAGENT_OUTAGE_BUILD_DRAFT_API=1")
+    set (pkg_config_defines "-DFTY_OUTAGE_BUILD_DRAFT_API=1")
 ELSE (ENABLE_DRAFTS)
     set (pkg_config_defines "")
 ENDIF (ENABLE_DRAFTS)
 configure_file(
-    "${SOURCE_DIR}/src/libagent_outage.pc.in"
-    "${SOURCE_DIR}/src/libagent_outage.pc"
+    "${SOURCE_DIR}/src/libfty_outage.pc.in"
+    "${SOURCE_DIR}/src/libfty_outage.pc"
 @ONLY)
 
 install(
-    FILES "${SOURCE_DIR}/src/libagent_outage.pc"
+    FILES "${SOURCE_DIR}/src/libfty_outage.pc"
     DESTINATION "lib${LIB_SUFFIX}/pkgconfig"
 )
 
@@ -197,45 +207,52 @@ install(
 # executables
 ########################################################################
 add_executable(
-    bios-agent-outage
-    "${SOURCE_DIR}/src/bios-agent-outage.c"
+    fty-agent-outage
+    "${SOURCE_DIR}/src/fty-agent-outage.c"
 )
 target_link_libraries(
-    bios-agent-outage
-    agent_outage
+    fty-agent-outage
+    fty_outage
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
     ${MALAMUTE_LIBRARIES}
-    ${BIOSPROTO_LIBRARIES}
+    ${FTY-PROTO_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
 set_target_properties(
-    bios-agent-outage
+    fty-agent-outage
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
 )
 add_executable(
-    agent_outage_selftest
-    "${SOURCE_DIR}/src/agent_outage_selftest.c"
+    fty_outage_selftest
+    "${SOURCE_DIR}/src/fty_outage_selftest.c"
 )
 target_link_libraries(
-    agent_outage_selftest
-    agent_outage
+    fty_outage_selftest
+    fty_outage
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
     ${MALAMUTE_LIBRARIES}
-    ${BIOSPROTO_LIBRARIES}
+    ${FTY-PROTO_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
 set_target_properties(
-    agent_outage_selftest
+    fty_outage_selftest
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
 )
 
 ########################################################################
 # tests
 ########################################################################
-set(CLASSTEST_TIMEOUT 5 CACHE STRING "Timeout of the selftest of a class")
-set(TOTAL_TIMEOUT 20 CACHE STRING "Timout of the total testsuite")
+set(CLASSTEST_TIMEOUT 60 CACHE STRING "Timeout of the selftest of a class")
+set(TOTAL_TIMEOUT 600 CACHE STRING "Timout of the total testsuite")
+
+if(UNIX)
+    find_program(MEMORYCHECK_COMMAND valgrind)
+    set(MEMORYCHECK_COMMAND_OPTIONS "--leak-check=full --show-reachable=yes
+                                     --error-exitcode=1
+                                     --suppressions=src/.valgrind.supp")
+endif()
 
 set(TEST_CLASSES
     data
@@ -243,14 +260,14 @@ set(TEST_CLASSES
 
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
-    bios_outage_server
+    fty_outage_server
     )
 ENDIF (ENABLE_DRAFTS)
 
 foreach(TEST_CLASS ${TEST_CLASSES})
     add_test(
         NAME ${TEST_CLASS}
-        COMMAND agent_outage_selftest --continue --verbose --test ${TEST_CLASS}
+        COMMAND fty_outage_selftest --continue --verbose --test ${TEST_CLASS}
     )
     set_tests_properties(
         ${TEST_CLASS}
@@ -258,12 +275,77 @@ foreach(TEST_CLASS ${TEST_CLASSES})
     )
 endforeach(TEST_CLASS)
 
+include(CTest)
+
+########################################################################
+# cleanup
+########################################################################
+add_custom_target (distclean @echo Cleaning for source distribution)
+
+set(cmake_generated ${CMAKE_BINARY_DIR}/CMakeCache.txt
+                    ${CMAKE_BINARY_DIR}/cmake_install.cmake
+                    ${CMAKE_BINARY_DIR}/Makefile
+                    ${CMAKE_BINARY_DIR}/CMakeFiles
+                    ${CMAKE_BINARY_DIR}/CTestTestfile.cmake
+                    ${CMAKE_BINARY_DIR}/DartConfiguration.tcl
+                    ${CMAKE_BINARY_DIR}/Testing
+                    ${CMAKE_BINARY_DIR}/compile_commands.json
+                    ${CMAKE_BINARY_DIR}/src/platform.h
+                    ${CMAKE_BINARY_DIR}/src/libfty_outage.pc
+                    ${CMAKE_BINARY_DIR}/src/libfty_outage.so
+                    ${CMAKE_BINARY_DIR}/src/fty-outage_selftest
+                    ${CMAKE_BINARY_DIR}/src/fty-agent-outage
+                    ${CMAKE_BINARY_DIR}/src/fty_outage_selftest
+)
+
+add_custom_command(
+    DEPENDS clean
+    COMMENT "distribution clean"
+    COMMAND rm
+    ARGS    -rf CMakeTmp ${cmake_generated}
+    TARGET  distclean
+)
 
 ########################################################################
 # summary
 ########################################################################
-message (STATUS "*** Version number: ${VERSION}")
-message (STATUS "*** Install target: ${CMAKE_INSTALL_PREFIX}")
+message ("")
+message (STATUS "******************* Configuration Summary *******************")
+message (STATUS "General:")
+message (STATUS "  Version           :   ${VERSION}")
+message (STATUS "  System            :   ${CMAKE_SYSTEM_NAME}")
+message (STATUS "  C compiler        :   ${CMAKE_C_COMPILER}")
+message (STATUS "  Debug C flags     :   ${CMAKE_C_FLAGS_DEBUG} ${CMAKE_C_FLAGS}")
+message (STATUS "  Release C flags   :   ${CMAKE_C_FLAGS_RELEASE} ${CMAKE_C_FLAGS}")
+message (STATUS "  Build type        :   ${CMAKE_BUILD_TYPE}")
+IF (ENABLE_DRAFTS)
+message (STATUS "  Draft API         :   Yes")
+ELSE (ENABLE_DRAFTS)
+message (STATUS "  Draft API         :   No")
+ENDIF (ENABLE_DRAFTS)
+message (STATUS "")
+message (STATUS "Dependencies:")
+include(FeatureSummary)
+feature_summary (WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
+message (STATUS "")
+message (STATUS "Install:")
+message (STATUS "  Install prefix    :" "${CMAKE_INSTALL_PREFIX}")
+message (STATUS "")
+message (STATUS "************************* Options ***************************")
+message (STATUS "Options:")
+message (STATUS "  Use the Draft API (default = yes):")
+message (STATUS "  -DENABLE-DRAFTS=[yes|no]")
+message (STATUS "")
+message (STATUS "*************************************************************")
+message (STATUS "Configuration complete! Now procced with:")
+message (STATUS "  'make'                compile the project")
+message (STATUS "  'make test'           run the project's selftest")
+message (STATUS "  'make install'        install the project to ${CMAKE_INSTALL_PREFIX}")
+message (STATUS "")
+message (STATUS "Further options are:")
+message (STATUS "  'ctest -T memcheck'   run the project's selftest with")
+message (STATUS "                        valgrind to check for memory leaks")
+message (STATUS "")
 
 ################################################################################
 #  THIS FILE IS 100% GENERATED BY ZPROJECT; DO NOT EDIT EXCEPT EXPERIMENTALLY  #

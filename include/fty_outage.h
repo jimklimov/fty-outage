@@ -1,5 +1,5 @@
 /*  =========================================================================
-    data - Data
+    fty-outage - Agent that sends alerts when device does not communicate.
 
     Copyright (C) 2014 - 2015 Eaton                                        
                                                                            
@@ -19,34 +19,12 @@
     =========================================================================
 */
 
-#ifndef DATA_H_INCLUDED
-#define DATA_H_INCLUDED
+#ifndef FTY_OUTAGE_H_H_INCLUDED
+#define FTY_OUTAGE_H_H_INCLUDED
 
-#include "../include/fty_outage.h"
+//  Include the project library file
+#include "fty_outage_library.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct _data_t data_t;
-
-//  @interface
-//  Create a new data
-FTY_OUTAGE_EXPORT data_t *
-    data_new (void);
-
-//  Destroy the data
-FTY_OUTAGE_EXPORT void
-    data_destroy (data_t **self_p);
-
-//  Self test of this class
-FTY_OUTAGE_EXPORT void
-    data_test (bool verbose);
-
-//  @end
-
-#ifdef __cplusplus
-}
-#endif
+//  Add your own public definitions here, if you need them
 
 #endif

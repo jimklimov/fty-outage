@@ -1,0 +1,5 @@
+usr/bin/fty-agent-outage
+usr/share/man/man1/fty-agent-outage.1
+etc/fty-outage/fty-agent-outage.cfg
+lib/systemd/system/fty-agent-outage.service
+

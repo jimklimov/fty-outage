@@ -1,9 +1,9 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: agent-outage
+Upstream-Name: fty-outage
 
 Files: *
-Copyright: 2015- agent-outage Developers <bios@eaton.com>
-License: agent-outage_license
+Copyright: 2015- fty-outage Developers <fty@eaton.com>
+License: fty-outage_license
  Copyright (C) 2014 - 2015 Eaton                                        
                                                                         
  This program is free software; you can redistribute it and/or modify   

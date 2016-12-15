@@ -1,32 +1,32 @@
 /*  =========================================================================
-    bios_outage_server - Bios outage server
+    fty_outage_server - 42ity outage server
 
-    Copyright (C) 2014 - 2015 Eaton
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
+    Copyright (C) 2014 - 2015 Eaton                                        
+                                                                           
+    This program is free software; you can redistribute it and/or modify   
+    it under the terms of the GNU General Public License as published by   
+    the Free Software Foundation; either version 2 of the License, or      
+    (at your option) any later version.                                    
+                                                                           
+    This program is distributed in the hope that it will be useful,        
+    but WITHOUT ANY WARRANTY; without even the implied warranty of         
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
+    GNU General Public License for more details.                           
+                                                                           
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
     =========================================================================
 */
 
 /*
 @header
-    bios_outage_server - Bios outage server
+    fty_outage_server - 42ity outage server
 @discuss
 @end
 */
 
-#include "agent_outage_classes.h"
+#include "fty_outage_classes.h"
 
 //  --------------------------------------------------------------------------
 //  Static helper functions
@@ -114,9 +114,9 @@ s_actor_commands (mlm_client_t *client, zmsg_t **message_p)
 
 
 // --------------------------------------------------------------------------
-// Create a new bios_outage_server
+// Create a new fty_outage_server
 void
-bios_outage_server (zsock_t *pipe, void *args)
+fty_outage_server (zsock_t *pipe, void *args)
 {
     mlm_client_t *client = mlm_client_new ();
     assert (client);
@@ -172,31 +172,30 @@ bios_outage_server (zsock_t *pipe, void *args)
         if (!message)
             break;
 
-        if (!is_bios_proto(message)) {
+        if (!is_fty_proto(message)) {
             zmsg_destroy(&message);
             continue;
         }
         
-        bios_proto_t *proto = bios_proto_decode (&message);        
+        fty_proto_t *proto = fty_proto_decode (&message);        
         assert (proto);
-        bios_proto_print (proto);
+        fty_proto_print (proto);
 
         
-        bios_proto_destroy (&proto);
+        fty_proto_destroy (&proto);
         
     }
     zpoller_destroy(&poller);
     mlm_client_destroy (&client);
 }
 
-
 // --------------------------------------------------------------------------
 // Self test of this class
 
 void
-bios_outage_server_test (bool verbose)
+fty_outage_server_test (bool verbose)
 {
-    printf (" * bios_outage_server: \n");
+    printf (" * fty_outage_server: \n");
 
     //     @selftest
 
@@ -206,7 +205,7 @@ bios_outage_server_test (bool verbose)
     zstr_sendx (server, "BIND",endpoint, NULL);
     zclock_sleep (1000);
 
-    zactor_t *outsvr = zactor_new (bios_outage_server, (void*) NULL);
+    zactor_t *outsvr = zactor_new (fty_outage_server, (void*) NULL);
     assert (outsvr);
 
     //    actor commands
@@ -232,13 +231,13 @@ bios_outage_server_test (bool verbose)
     assert (rv >= 0);
 
     // create asset
-    /*    zmsg_t *sendmsg = bios_proto_encode_asset (
+    /*    zmsg_t *sendmsg = fty_proto_encode_asset (
         NULL,
         "UPS33",
         "update",
         NULL);
 */
-    zmsg_t *sendmsg = bios_proto_encode_metric (
+    zmsg_t *sendmsg = fty_proto_encode_metric (
         NULL,
         "dev",
         "UPS33",
