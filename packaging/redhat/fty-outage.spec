@@ -1,5 +1,5 @@
 #
-#    agent-outage - Agent that sends alerts when device does not communicate.
+#    fty-outage - Agent that sends alerts when device does not communicate.
 #
 #    Copyright (C) 2014 - 2015 Eaton                                        
 #                                                                           
@@ -18,7 +18,17 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
 #
 
-Name:           agent-outage
+# To build with draft APIs, use "--with drafts" in rpmbuild for local builds or add
+#   Macros:
+#   %_with_drafts 1
+# at the BOTTOM of the OBS prjconf
+%bcond_with drafts
+%if %{with drafts}
+%define DRAFTS yes
+%else
+%define DRAFTS no
+%endif
+Name:           fty-outage
 Version:        0.1.0
 Release:        1
 Summary:        agent that sends alerts when device does not communicate.
@@ -26,61 +36,70 @@ License:        GPL-2.0+
 URL:            https://eaton.com/
 Source0:        %{name}-%{version}.tar.gz
 Group:          System/Libraries
+# Note: ghostscript is required by graphviz which is required by
+#       asciidoc. On Fedora 24 the ghostscript dependencies cannot
+#       be resolved automatically. Thus add working dependency here!
+BuildRequires:  ghostscript
+BuildRequires:  asciidoc
 BuildRequires:  automake
 BuildRequires:  autoconf
 BuildRequires:  libtool
-BuildRequires:  pkg-config
+BuildRequires:  pkgconfig
 BuildRequires:  systemd-devel
+BuildRequires:  systemd
+%{?systemd_requires}
+BuildRequires:  xmlto
 BuildRequires:  zeromq-devel
 BuildRequires:  czmq-devel
 BuildRequires:  malamute-devel
-BuildRequires:  biosproto-devel
+BuildRequires:  fty-proto-devel
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
-agent-outage agent that sends alerts when device does not communicate..
+fty-outage agent that sends alerts when device does not communicate..
 
-%package -n libagent_outage0
+%package -n libfty_outage0
 Group:          System/Libraries
 Summary:        agent that sends alerts when device does not communicate.
 
-%description -n libagent_outage0
-agent-outage agent that sends alerts when device does not communicate..
+%description -n libfty_outage0
+fty-outage agent that sends alerts when device does not communicate..
 This package contains shared library.
 
-%post -n libagent_outage0 -p /sbin/ldconfig
-%postun -n libagent_outage0 -p /sbin/ldconfig
+%post -n libfty_outage0 -p /sbin/ldconfig
+%postun -n libfty_outage0 -p /sbin/ldconfig
 
-%files -n libagent_outage0
+%files -n libfty_outage0
 %defattr(-,root,root)
-%doc COPYING
-%{_libdir}/libagent_outage.so.*
+%{_libdir}/libfty_outage.so.*
 
 %package devel
 Summary:        agent that sends alerts when device does not communicate.
 Group:          System/Libraries
-Requires:       libagent_outage0 = %{version}
+Requires:       libfty_outage0 = %{version}
 Requires:       zeromq-devel
 Requires:       czmq-devel
 Requires:       malamute-devel
-Requires:       biosproto-devel
+Requires:       fty-proto-devel
 
 %description devel
-agent-outage agent that sends alerts when device does not communicate..
+fty-outage agent that sends alerts when device does not communicate..
 This package contains development files.
 
 %files devel
 %defattr(-,root,root)
 %{_includedir}/*
-%{_libdir}/libagent_outage.so
-%{_libdir}/pkgconfig/libagent_outage.pc
+%{_libdir}/libfty_outage.so
+%{_libdir}/pkgconfig/libfty_outage.pc
+%{_mandir}/man3/*
+%{_mandir}/man7/*
 
 %prep
 %setup -q
 
 %build
 sh autogen.sh
-%{configure} --with-systemd-units
+%{configure} --enable-drafts=%{DRAFTS} --with-systemd-units
 make %{_smp_mflags}
 
 %install
@@ -92,8 +111,18 @@ find %{buildroot} -name '*.la' | xargs rm -f
 
 %files
 %defattr(-,root,root)
-%{_bindir}/bios-agent-outage
-%{_prefix}/lib/systemd/system/bios-agent-outage*.service
-
+%{_bindir}/fty-agent-outage
+%{_mandir}/man1/fty-agent-outage*
+%config(noreplace) %{_sysconfdir}/fty-outage/fty-agent-outage.cfg
+/usr/lib/systemd/system/fty-agent-outage.service
+%dir %{_sysconfdir}/fty-outage
+%if 0%{?suse_version} > 1315
+%post
+%systemd_post fty-agent-outage.service
+%preun
+%systemd_preun fty-agent-outage.service
+%postun
+%systemd_postun_with_restart fty-agent-outage.service
+%endif
 
 %changelog

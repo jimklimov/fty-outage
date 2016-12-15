@@ -1,5 +1,5 @@
 /*  =========================================================================
-    data - Data
+    fty_outage_server - 42ity outage server
 
     Copyright (C) 2014 - 2015 Eaton                                        
                                                                            
@@ -19,29 +19,21 @@
     =========================================================================
 */
 
-#ifndef DATA_H_INCLUDED
-#define DATA_H_INCLUDED
-
-#include "../include/fty_outage.h"
+#ifndef FTY_OUTAGE_SERVER_H_INCLUDED
+#define FTY_OUTAGE_SERVER_H_INCLUDED
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _data_t data_t;
-
 //  @interface
-//  Create a new data
-FTY_OUTAGE_EXPORT data_t *
-    data_new (void);
-
-//  Destroy the data
+//  fty_outage_server actor
 FTY_OUTAGE_EXPORT void
-    data_destroy (data_t **self_p);
+    fty_outage_server (zsock_t *pipe, void *args);
 
 //  Self test of this class
 FTY_OUTAGE_EXPORT void
-    data_test (bool verbose);
+    fty_outage_server_test (bool verbose);
 
 //  @end
 

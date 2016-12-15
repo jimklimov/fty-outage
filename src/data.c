@@ -26,7 +26,7 @@
 @end
 */
 
-#include "agent_outage_classes.h"
+#include "fty_outage_classes.h"
 
 //  Structure of our class
 
@@ -37,19 +37,19 @@ struct _data_t {
 // ------------------------------------------------------------------------
 // put data 
 void
-data_put (data_t *self, bios_proto_t  **proto_p) 
+data_put (data_t *self, fty_proto_t  **proto_p) 
 {
     assert (self);
     assert (proto_p);
     
-    bios_proto_t *proto = *proto_p;
+    fty_proto_t *proto = *proto_p;
     if (!proto)
         return;
 
-    // data from bios_proto
-    zhash_t *aux = bios_proto_get_aux (proto);
-    const char *source = bios_proto_element_src (proto);
-    uint64_t ttl = (uint64_t)bios_proto_ttl (proto);
+    // data from fty_proto
+    zhash_t *aux = fty_proto_get_aux (proto);
+    const char *source = fty_proto_element_src (proto);
+    uint64_t ttl = (uint64_t)fty_proto_ttl (proto);
 
     // getting timestamp from metrics
     uint64_t timestamp = (uint64_t) zhash_lookup (aux, "AGENT_CM_TIME");    
@@ -71,7 +71,7 @@ data_put (data_t *self, bios_proto_t  **proto_p)
     }
     
     zhash_destroy (&aux);
-    bios_proto_destroy(proto_p);
+    fty_proto_destroy(proto_p);
 }
 
 
@@ -155,12 +155,12 @@ data_test (bool verbose)
     zhash_update(aux,"key2" , "val2");
     
     // create new metrics 
-    zmsg_t *met_n = bios_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
-    bios_proto_t *proto_n = bios_proto_decode (&met_n);
+    zmsg_t *met_n = fty_proto_encode_metric (aux, "device", "UPS4", "100", "C", 5);
+    fty_proto_t *proto_n = fty_proto_decode (&met_n);
 
     // update metric
-    zmsg_t *met_u = bios_proto_encode_metric (aux, "device", "UPS3", "100", "C", 6);
-    bios_proto_t *proto_u = bios_proto_decode (&met_u);
+    zmsg_t *met_u = fty_proto_encode_metric (aux, "device", "UPS3", "100", "C", 6);
+    fty_proto_t *proto_u = fty_proto_decode (&met_u);
     
     // key .. source, val ...expiration
     data_t *data = data_new ();
@@ -177,8 +177,8 @@ data_test (bool verbose)
     // give me dead devices
     data_get_dead(data);
     
-    bios_proto_destroy(&proto_n);
-    bios_proto_destroy(&proto_u);
+    fty_proto_destroy(&proto_n);
+    fty_proto_destroy(&proto_u);
     zmsg_destroy(&met_n);
     zmsg_destroy(&met_u); 
     zhash_destroy(&aux);

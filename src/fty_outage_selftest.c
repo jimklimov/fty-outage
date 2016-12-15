@@ -1,5 +1,5 @@
 /*  =========================================================================
-    agent_outage_selftest.c - run selftests
+    fty_outage_selftest.c - run selftests
 
     Runs all selftests.
 
@@ -27,7 +27,7 @@
     =========================================================================
 */
 
-#include "agent_outage_classes.h"
+#include "fty_outage_classes.h"
 
 typedef struct {
     const char *testname;
@@ -37,9 +37,9 @@ typedef struct {
 static test_item_t
 all_tests [] = {
     { "data", data_test },
-#ifdef AGENT_OUTAGE_BUILD_DRAFT_API
-    { "bios_outage_server", bios_outage_server_test },
-#endif // AGENT_OUTAGE_BUILD_DRAFT_API
+#ifdef FTY_OUTAGE_BUILD_DRAFT_API
+    { "fty_outage_server", fty_outage_server_test },
+#endif // FTY_OUTAGE_BUILD_DRAFT_API
     {0, 0}          //  Sentinel
 };
 
@@ -67,7 +67,7 @@ static void
 test_runall (bool verbose)
 {
     test_item_t *item;
-    printf ("Running agent-outage selftests...\n");
+    printf ("Running fty-outage selftests...\n");
     for (item = all_tests; item->test; item++)
         item->test (verbose);
 
@@ -83,7 +83,7 @@ main (int argc, char **argv)
     for (argn = 1; argn < argc; argn++) {
         if (streq (argv [argn], "--help")
         ||  streq (argv [argn], "-h")) {
-            puts ("agent_outage_selftest.c [options] ...");
+            puts ("fty_outage_selftest.c [options] ...");
             puts ("  --verbose / -v         verbose test output");
             puts ("  --number / -n          report number of tests");
             puts ("  --list / -l            list all tests");
@@ -104,7 +104,7 @@ main (int argc, char **argv)
         if (streq (argv [argn], "--list")
         ||  streq (argv [argn], "-l")) {
             puts ("Available tests:");
-            puts ("    bios_outage_server");
+            puts ("    fty_outage_server");
             puts ("    data");
             return 0;
         }
@@ -136,7 +136,7 @@ main (int argc, char **argv)
         }
     }
     if (test) {
-        printf ("Running agent-outage test '%s'...\n", test->testname);
+        printf ("Running fty-outage test '%s'...\n", test->testname);
         test->test (verbose);
     }
     else

@@ -5,40 +5,42 @@
 
 if (NOT MSVC)
     include(FindPkgConfig)
-    pkg_check_modules(PC_BIOSPROTO "libbiosproto")
-    if (NOT PC_BIOSPROTO_FOUND)
-        pkg_check_modules(PC_BIOSPROTO "libbiosproto")
-    endif (NOT PC_BIOSPROTO_FOUND)
-    if (PC_BIOSPROTO_FOUND)
+    pkg_check_modules(PC_FTY-PROTO "libfty_proto")
+    if (NOT PC_FTY-PROTO_FOUND)
+        pkg_check_modules(PC_FTY-PROTO "libfty_proto")
+    endif (NOT PC_FTY-PROTO_FOUND)
+    if (PC_FTY-PROTO_FOUND)
+        # add CFLAGS from pkg-config file, e.g. draft api.
+        add_definitions(${PC_FTY-PROTO_CFLAGS} ${PC_FTY-PROTO_CFLAGS_OTHER})
         # some libraries install the headers is a subdirectory of the include dir
         # returned by pkg-config, so use a wildcard match to improve chances of finding
         # headers and SOs.
-        set(PC_BIOSPROTO_INCLUDE_HINTS ${PC_BIOSPROTO_INCLUDE_DIRS} ${PC_BIOSPROTO_INCLUDE_DIRS}/*)
-        set(PC_BIOSPROTO_LIBRARY_HINTS ${PC_BIOSPROTO_LIBRARY_DIRS} ${PC_BIOSPROTO_LIBRARY_DIRS}/*)
-    endif(PC_BIOSPROTO_FOUND)
+        set(PC_FTY-PROTO_INCLUDE_HINTS ${PC_FTY-PROTO_INCLUDE_DIRS} ${PC_FTY-PROTO_INCLUDE_DIRS}/*)
+        set(PC_FTY-PROTO_LIBRARY_HINTS ${PC_FTY-PROTO_LIBRARY_DIRS} ${PC_FTY-PROTO_LIBRARY_DIRS}/*)
+    endif(PC_FTY-PROTO_FOUND)
 endif (NOT MSVC)
 
 find_path (
-    BIOSPROTO_INCLUDE_DIRS
-    NAMES biosproto.h
-    HINTS ${PC_BIOSPROTO_INCLUDE_HINTS}
+    FTY-PROTO_INCLUDE_DIRS
+    NAMES fty_proto.h
+    HINTS ${PC_FTY-PROTO_INCLUDE_HINTS}
 )
 
 find_library (
-    BIOSPROTO_LIBRARIES
-    NAMES biosproto
-    HINTS ${PC_BIOSPROTO_LIBRARY_HINTS}
+    FTY-PROTO_LIBRARIES
+    NAMES fty_proto
+    HINTS ${PC_FTY-PROTO_LIBRARY_HINTS}
 )
 
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(
-    BIOSPROTO
-    REQUIRED_VARS BIOSPROTO_LIBRARIES BIOSPROTO_INCLUDE_DIRS
+    FTY-PROTO
+    REQUIRED_VARS FTY-PROTO_LIBRARIES FTY-PROTO_INCLUDE_DIRS
 )
 mark_as_advanced(
-    BIOSPROTO_FOUND
-    BIOSPROTO_LIBRARIES BIOSPROTO_INCLUDE_DIRS
+    FTY-PROTO_FOUND
+    FTY-PROTO_LIBRARIES FTY-PROTO_INCLUDE_DIRS
 )
 
 ################################################################################
