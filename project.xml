@@ -2,7 +2,7 @@
     name = "fty-outage"
     description = "Agent that sends alerts when device does not communicate."
     script = "zproject.gsl"
-    email = "fty@eaton.com"
+    email = "eatonipcopensource@eaton.com"
     url = "https://eaton.com/"
     license = "GPL-2.0+"
     >

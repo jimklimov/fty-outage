@@ -2,7 +2,7 @@ Format: 3.0 (quilt)
 Binary: fty-outage
 Source: fty-outage
 Version: 0.1.0
-Maintainer: fty-outage Developers <fty@eaton.com>
+Maintainer: fty-outage Developers <eatonipcopensource@eaton.com>
 Architecture: any
 Build-Depends: debhelper (>= 9),
     pkg-config,
