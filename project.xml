@@ -9,6 +9,7 @@
 
     <target name = "debian" />
     <target name = "redhat" />
+    <target name = "travis" />
 
     <include filename = "license.xml" />
     <version major = "0" minor = "1" patch = "0" />
