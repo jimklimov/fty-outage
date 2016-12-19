@@ -62,6 +62,19 @@ if [ "$BUILD_TYPE" == "default" ]; then
     make -j4
     make install
     cd ..
+    git clone --quiet --depth 1 https://github.com/42ity/fty-proto fty-proto
+    cd fty-proto
+    git --no-pager log --oneline -n1
+    if [ -e autogen.sh ]; then
+        ./autogen.sh 2> /dev/null
+    fi
+    if [ -e buildconf ]; then
+        ./buildconf 2> /dev/null
+    fi
+    ./configure "${CONFIG_OPTS[@]}"
+    make -j4
+    make install
+    cd ..
 
     # Build and check this project
     ./autogen.sh 2> /dev/null
