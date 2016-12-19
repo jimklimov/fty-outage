@@ -1,0 +1,14 @@
+#### fty-agent-outage - Agent outage
+
+fty_agent_outage - Agent outage
+
+Please add @discuss section in ../src/fty_agent_outage.c.
+
+This is the class interface:
+
+Please add @interface section in ../src/fty_agent_outage.c.
+
+This is the class self test code:
+
+Please add @selftest section in ../src/fty_agent_outage.c.
+
