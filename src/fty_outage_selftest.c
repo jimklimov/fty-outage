@@ -36,7 +36,6 @@ typedef struct {
 
 static test_item_t
 all_tests [] = {
-    { "data", data_test },
 #ifdef FTY_OUTAGE_BUILD_DRAFT_API
     { "fty_outage_server", fty_outage_server_test },
 #endif // FTY_OUTAGE_BUILD_DRAFT_API

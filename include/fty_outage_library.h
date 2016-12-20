@@ -32,7 +32,7 @@
 //  External dependencies
 #include <czmq.h>
 #include <malamute.h>
-#include <fty_proto.h>
+#include <ftyproto.h>
 
 //  FTY_OUTAGE version macros for compile-time API detection
 #define FTY_OUTAGE_VERSION_MAJOR 1
@@ -58,8 +58,14 @@
 #   else
 #       define FTY_OUTAGE_EXPORT __declspec(dllimport)
 #   endif
+#   define FTY_OUTAGE_PRIVATE
 #else
 #   define FTY_OUTAGE_EXPORT
+#   if (defined __GNUC__ && __GNUC__ >= 4) || defined __INTEL_COMPILER
+#       define FTY_OUTAGE_PRIVATE __attribute__ ((visibility ("hidden")))
+#   else
+#       define FTY_OUTAGE_PRIVATE
+#   endif
 #endif
 
 //  Project has no stable classes, so we build the draft API

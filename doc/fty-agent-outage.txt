@@ -8,7 +8,8 @@ fty-agent-outage - Agent outage
 SYNOPSIS
 --------
 ----
-Please add @interface section in ../src/fty_agent_outage.c.
+Please add '@interface' section in './../src/fty_agent_outage.c'.
+Please add '@interface' section in './../src/fty_agent_outage.c'.
 ----
 
 DESCRIPTION
@@ -16,11 +17,11 @@ DESCRIPTION
 
 fty_agent_outage - Agent outage
 
-Please add @discuss section in ../src/fty_agent_outage.c.
+Please add '@discuss' section in './../src/fty_agent_outage.c'.
 
 EXAMPLE
 -------
 .From fty_agent_outage_test method
 ----
-Please add @selftest section in ../src/fty_agent_outage.c.
+Please add '@selftest' section in './../src/fty_agent_outage.c'.
 ----

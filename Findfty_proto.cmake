@@ -22,7 +22,7 @@ endif (NOT MSVC)
 
 find_path (
     FTY-PROTO_INCLUDE_DIRS
-    NAMES fty_proto.h
+    NAMES ftyproto.h
     HINTS ${PC_FTY-PROTO_INCLUDE_HINTS}
 )
 

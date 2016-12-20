@@ -255,7 +255,6 @@ if(UNIX)
 endif()
 
 set(TEST_CLASSES
-    data
 )
 
 IF (ENABLE_DRAFTS)
