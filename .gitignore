@@ -85,6 +85,3 @@ build/
 *.swp
 *~
 *.bak
-
-# CMake build directory
-builds/
