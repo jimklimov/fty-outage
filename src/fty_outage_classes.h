@@ -40,7 +40,7 @@
 
 //  *** Draft method, defined for internal use only ***
 //  Self test of this class.
-FTY_OUTAGE_EXPORT void
+FTY_OUTAGE_PRIVATE void
     data_test (bool verbose);
 
 #endif // FTY_OUTAGE_BUILD_DRAFT_API
