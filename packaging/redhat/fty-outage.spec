@@ -29,11 +29,11 @@
 %define DRAFTS no
 %endif
 Name:           fty-outage
-Version:        0.1.0
+Version:        1.0.0
 Release:        1
 Summary:        agent that sends alerts when device does not communicate.
 License:        GPL-2.0+
-URL:            https://eaton.com/
+URL:            https://42ity.com/
 Source0:        %{name}-%{version}.tar.gz
 Group:          System/Libraries
 # Note: ghostscript is required by graphviz which is required by
@@ -58,25 +58,25 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 %description
 fty-outage agent that sends alerts when device does not communicate..
 
-%package -n libfty_outage0
+%package -n libfty_outage1
 Group:          System/Libraries
 Summary:        agent that sends alerts when device does not communicate.
 
-%description -n libfty_outage0
+%description -n libfty_outage1
 fty-outage agent that sends alerts when device does not communicate..
 This package contains shared library.
 
-%post -n libfty_outage0 -p /sbin/ldconfig
-%postun -n libfty_outage0 -p /sbin/ldconfig
+%post -n libfty_outage1 -p /sbin/ldconfig
+%postun -n libfty_outage1 -p /sbin/ldconfig
 
-%files -n libfty_outage0
+%files -n libfty_outage1
 %defattr(-,root,root)
 %{_libdir}/libfty_outage.so.*
 
 %package devel
 Summary:        agent that sends alerts when device does not communicate.
 Group:          System/Libraries
-Requires:       libfty_outage0 = %{version}
+Requires:       libfty_outage1 = %{version}
 Requires:       zeromq-devel
 Requires:       czmq-devel
 Requires:       malamute-devel

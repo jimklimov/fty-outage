@@ -183,7 +183,7 @@ install(TARGETS fty_outage
 ########################################################################
 # pkgconfig
 ########################################################################
-set (VERSION "0.1.0")
+set (VERSION "1.0.0")
 set (prefix "${CMAKE_INSTALL_PREFIX}")
 set (exec_prefix "\${prefix}")
 set (libdir "\${prefix}/lib${LIB_SUFFIX}")
