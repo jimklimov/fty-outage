@@ -35,8 +35,8 @@
 #include <fty_proto.h>
 
 //  FTY_OUTAGE version macros for compile-time API detection
-#define FTY_OUTAGE_VERSION_MAJOR 0
-#define FTY_OUTAGE_VERSION_MINOR 1
+#define FTY_OUTAGE_VERSION_MAJOR 1
+#define FTY_OUTAGE_VERSION_MINOR 0
 #define FTY_OUTAGE_VERSION_PATCH 0
 
 #define FTY_OUTAGE_MAKE_VERSION(major, minor, patch) \

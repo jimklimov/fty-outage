@@ -34,7 +34,7 @@ Build-Depends: debhelper (>= 9),
 Build-Depends-Indep: asciidoc,
                      xmlto
 
-Package: libfty-outage0
+Package: libfty-outage1
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: fty-outage
@@ -48,7 +48,7 @@ Depends:
     libczmq-dev,
     libmlm-dev,
     libfty-proto-dev,
-    libfty-outage0 (= ${binary:Version})
+    libfty-outage1 (= ${binary:Version})
 Description: development files for fty-outage
  This package contains development files for fty-outage: agent that sends alerts when device does not communicate.
 
