@@ -11,7 +11,7 @@ set -e
 if [ "$BUILD_TYPE" == "default" ]; then
     # Tell travis to deploy all files in dist
     mkdir dist
-    export FTY-OUTAGE_DEPLOYMENT=dist/*
+    export FTY_OUTAGE_DEPLOYMENT=dist/*
     # Move archives to dist
     mv *.tar.gz dist
     mv *.zip dist
@@ -22,7 +22,8 @@ if [ "$BUILD_TYPE" == "default" ]; then
     cd -
 elif [ "$BUILD_TYPE" == "bindings" ] && [ "$BINDING" == "jni" ]; then
     ( cd bindings/jni && TERM=dumb PKG_CONFIG_PATH=/tmp/lib/pkgconfig ./gradlew clean bintrayUpload )
-    export CZMQ_DEPLOYMENT=bindings/jni/android/fty_outage-android.jar
+    cp bindings/jni/android/fty_outage-android.jar fty_outage-android-1.0.0.jar
+    export FTY_OUTAGE_DEPLOYMENT=fty_outage-android-1.0.0.jar
 else
-    export FTY-OUTAGE_DEPLOYMENT=""
+    export FTY_OUTAGE_DEPLOYMENT=""
 fi

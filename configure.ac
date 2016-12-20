@@ -7,7 +7,7 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
 #
-AC_INIT([fty-outage],[0.1.0],[eatonipcopensource@eaton.com])
+AC_INIT([fty-outage],[1.0.0],[eatonipcopensource@eaton.com])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -36,7 +36,7 @@ AC_SUBST(PACKAGE_VERSION)
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 #
 # libfty_outage -version-info
-LTVER="0:1:0"
+LTVER="1:0:0"
 AC_SUBST(LTVER)
 
 # Capture c flags
@@ -150,7 +150,7 @@ PKG_CHECK_MODULES([czmq], [libczmq >= 0.0.0],
         fi
 
 
-        AC_CHECK_LIB([czmq], [zctx_test],
+        AC_CHECK_LIB([czmq], [zhashx_test],
             [
                 CFLAGS="${czmq_synthetic_cflags} ${CFLAGS}"
                 LDFLAGS="${czmq_synthetic_libs} ${LDFLAGS}"
@@ -218,44 +218,12 @@ fi
 
 was_fty_proto_check_lib_detected=no
 
-PKG_CHECK_MODULES([fty_proto], [libfty_proto >= 0.0.0],
+PKG_CHECK_MODULES([fty_proto], [libfty_proto >= 1.0.0],
     [
         PKGCFG_LIBS_PRIVATE="$PKGCFG_LIBS_PRIVATE $fty_proto_LIBS"
     ],
     [
-        AC_ARG_WITH([libfty_proto],
-            [
-                AS_HELP_STRING([--with-libfty_proto],
-                [Specify libfty_proto prefix])
-            ],
-            [search_libfty_proto="yes"],
-            [])
-
-        fty_proto_synthetic_cflags=""
-        fty_proto_synthetic_libs="-lfty_proto"
-
-        if test "x$search_libfty_proto" = "xyes"; then
-            if test -r "${with_libfty_proto}/include/fty_proto.h"; then
-                fty_proto_synthetic_cflags="-I${with_libfty_proto}/include"
-                fty_proto_synthetic_libs="-L${with_libfty_proto}/lib -lfty_proto"
-            else
-                AC_MSG_ERROR([${with_libfty_proto}/include/fty_proto.h not found. Please check libfty_proto prefix])
-            fi
-        fi
-
-
-        AC_CHECK_LIB([fty_proto], [fty_proto_test],
-            [
-                CFLAGS="${fty_proto_synthetic_cflags} ${CFLAGS}"
-                LDFLAGS="${fty_proto_synthetic_libs} ${LDFLAGS}"
-                LIBS="${fty_proto_synthetic_libs} ${LIBS}"
-
-                AC_SUBST([fty_proto_CFLAGS],[${fty_proto_synthetic_cflags}])
-                AC_SUBST([fty_proto_LIBS],[${fty_proto_synthetic_libs}])
-                was_fty_proto_check_lib_detected=yes
-                PKGCFG_LIBS_PRIVATE="$PKGCFG_LIBS_PRIVATE -lfty_proto"
-            ],
-            [AC_MSG_ERROR([cannot link with -lfty_proto, install libfty_proto])])
+        AC_MSG_ERROR([Cannot find libfty_proto 1.0.0 or higher])
     ])
 
 if test "x$was_fty_proto_check_lib_detected" = "xno"; then
@@ -299,7 +267,7 @@ else
     if test "x$fty_outage_have_asciidoc" = "xno" -o "x$fty_outage_have_xmlto" = "xno"; then
         fty_outage_build_doc="no"
         # Tarballs built with 'make dist' ship with prebuilt documentation.
-        if ! test -f doc/fty_outage.7; then
+        if ! test -f doc/fty-outage.7; then
             fty_outage_install_man="no"
             AC_MSG_WARN([You are building an unreleased version of FTY-OUTAGE and asciidoc or xmlto are not installed.])
             AC_MSG_WARN([Documentation will not be built and manual pages will not be installed.])
@@ -332,6 +300,8 @@ case "${host_os}" in
     *solaris*)
         # Define on Solaris to enable all library features
         CPPFLAGS="-D_PTHREADS $CPPFLAGS"
+        # Allow definitions of common OS-provided functions that are not in old standards
+        CPPFLAGS="-D__EXTENSIONS__ $CPPFLAGS"
         AC_DEFINE(FTY_OUTAGE_HAVE_SOLARIS, 1, [Have Solaris OS])
         CFLAGS="${CFLAGS} -lsocket -lssp"
         ;;
@@ -595,6 +565,8 @@ echo "                           (requires zproject and zproto)"
 echo "    - 'make debug'         run the project's selftest under gdb"
 echo "    - 'make memcheck'      run the project's selftest with valgrind to"
 echo "                           check for memory leaks"
+echo "    - 'make coverage'      generate project's selftest coverage report"
+echo "                           expects --with-gcov option for configure"
 echo
 ])
 

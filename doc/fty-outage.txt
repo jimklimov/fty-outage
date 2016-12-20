@@ -1,0 +1,25 @@
+Name(7)
+=======
+
+
+NAME
+----
+fty-outage - Agent that sends alerts when device does not communicate.
+
+
+SYNOPSIS
+--------
+----
+#include <fty_outage.h>
+
+cc ['flags'] 'files' -lfty_outage ['libraries']
+----
+
+
+DESCRIPTION
+-----------
+
+Classes
+~~~~~~~
+
+Something.

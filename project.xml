@@ -3,8 +3,10 @@
     description = "Agent that sends alerts when device does not communicate."
     script = "zproject.gsl"
     email = "eatonipcopensource@eaton.com"
-    url = "https://eaton.com/"
+    url = "https://42ity.com/"
     license = "GPL-2.0+"
+    repository = "https://github.com/42ity/fty-outage"
+    abi = "1:0:0"
     >
 
     <target name = "debian" />
@@ -12,13 +14,14 @@
     <target name = "travis" />
 
     <include filename = "license.xml" />
-    <version major = "0" minor = "1" patch = "0" />
+    <version major = "1" minor = "0" patch = "0" />
 
-    <use project = "czmq" />
+    <use project = "czmq" release = "v3.0.2" />
     <use project = "malamute" />
 
     <use project = "fty-proto" libname = "libfty_proto" prefix="fty_proto"
-        min_major = "0" min_minor = "0" min_patch = "0"
+        min_major = "1" min_minor = "0" min_patch = "0"
+        repository = "https://github.com/42ity/fty-proto"
         test = "fty_proto_test">
         <use project = "malamute"/>
     </use>
