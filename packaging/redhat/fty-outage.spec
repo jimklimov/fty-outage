@@ -91,7 +91,6 @@ This package contains development files for fty-outage: agent that sends alerts 
 %{_libdir}/libfty_outage.so
 %{_libdir}/pkgconfig/libfty_outage.pc
 %{_mandir}/man3/*
-%{_mandir}/man7/*
 
 %prep
 %setup -q
@@ -110,18 +109,18 @@ find %{buildroot} -name '*.la' | xargs rm -f
 
 %files
 %defattr(-,root,root)
-%{_bindir}/fty-agent-outage
-%{_mandir}/man1/fty-agent-outage*
-%config(noreplace) %{_sysconfdir}/fty-outage/fty-agent-outage.cfg
-/usr/lib/systemd/system/fty-agent-outage.service
+%{_bindir}/fty-outage
+%{_mandir}/man1/fty-outage*
+%config(noreplace) %{_sysconfdir}/fty-outage/fty-outage.cfg
+/usr/lib/systemd/system/fty-outage.service
 %dir %{_sysconfdir}/fty-outage
 %if 0%{?suse_version} > 1315
 %post
-%systemd_post fty-agent-outage.service
+%systemd_post fty-outage.service
 %preun
-%systemd_preun fty-agent-outage.service
+%systemd_preun fty-outage.service
 %postun
-%systemd_postun_with_restart fty-agent-outage.service
+%systemd_postun_with_restart fty-outage.service
 %endif
 
 %changelog

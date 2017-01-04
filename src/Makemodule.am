@@ -55,17 +55,17 @@ if WITH_SYSTEMD_UNITS
 systemdsystemunit_DATA =
 endif #WITH_SYSTEMD_UNITS
 
-if ENABLE_FTY_AGENT_OUTAGE
-bin_PROGRAMS += src/fty-agent-outage
-src_fty_agent_outage_CPPFLAGS = ${AM_CPPFLAGS}
-src_fty_agent_outage_LDADD = ${program_libs}
-src_fty_agent_outage_SOURCES = src/fty_agent_outage.c
-src_fty_agent_outage_config_DATA = src/fty-agent-outage.cfg
-src_fty_agent_outage_configdir = $(sysconfdir)/fty-outage
+if ENABLE_FTY_OUTAGE
+bin_PROGRAMS += src/fty-outage
+src_fty_outage_CPPFLAGS = ${AM_CPPFLAGS}
+src_fty_outage_LDADD = ${program_libs}
+src_fty_outage_SOURCES = src/fty_outage.c
+src_fty_outage_config_DATA = src/fty-outage.cfg
+src_fty_outage_configdir = $(sysconfdir)/fty-outage
 if WITH_SYSTEMD_UNITS
-systemdsystemunit_DATA += src/fty-agent-outage.service
+systemdsystemunit_DATA += src/fty-outage.service
 endif #WITH_SYSTEMD_UNITS
-endif #ENABLE_FTY_AGENT_OUTAGE
+endif #ENABLE_FTY_OUTAGE
 
 if ENABLE_FTY_OUTAGE_SELFTEST
 check_PROGRAMS += src/fty_outage_selftest
@@ -77,7 +77,7 @@ endif #ENABLE_FTY_OUTAGE_SELFTEST
 
 # define custom target for all products of /src
 src:
-	src/fty-agent-outage \
+	src/fty-outage \
 	src/fty_outage_selftest \
 	src/libfty_outage.la
 
