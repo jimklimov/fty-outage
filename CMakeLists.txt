@@ -207,11 +207,11 @@ install(
 # executables
 ########################################################################
 add_executable(
-    fty-agent-outage
-    "${SOURCE_DIR}/src/fty-agent-outage.c"
+    fty-outage
+    "${SOURCE_DIR}/src/fty-outage.c"
 )
 target_link_libraries(
-    fty-agent-outage
+    fty-outage
     fty_outage
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
@@ -220,7 +220,7 @@ target_link_libraries(
     ${OPTIONAL_LIBRARIES}
 )
 set_target_properties(
-    fty-agent-outage
+    fty-outage
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
 )
 add_executable(
@@ -293,7 +293,7 @@ set(cmake_generated ${CMAKE_BINARY_DIR}/CMakeCache.txt
                     ${CMAKE_BINARY_DIR}/src/libfty_outage.pc
                     ${CMAKE_BINARY_DIR}/src/libfty_outage.so
                     ${CMAKE_BINARY_DIR}/src/fty-outage_selftest
-                    ${CMAKE_BINARY_DIR}/src/fty-agent-outage
+                    ${CMAKE_BINARY_DIR}/src/fty-outage
                     ${CMAKE_BINARY_DIR}/src/fty_outage_selftest
 )
 
