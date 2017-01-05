@@ -50,7 +50,7 @@ GENERATED_DOCS =
 
 GENERATED_DOCS += fty_outage_server.txt fty_outage_server.doc
 fty_outage_server.txt: $(top_srcdir)/src/fty_outage_server.c
-	$(srcdir)/mkman fty_outage_server $(builddir)/fty-outage-server $(srcdir)/..
+	$(srcdir)/mkman fty_outage_server $(builddir)/fty_outage_server $(srcdir)/..
 
 GENERATED_DOCS += fty-outage.txt fty-outage.doc
 fty-outage.txt: $(top_srcdir)/src/fty_outage.c
