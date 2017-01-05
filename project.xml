@@ -29,6 +29,6 @@
     <class name = "fty-outage-server">Bios outage server</class>
     <class name = "data" private = "1"> Data </class>
 
-    <main  name = "fty-agent-outage" service = "1">Agent outage</main>
+    <main  name = "fty-outage" service = "1">Agent outage</main>
 
 </project>

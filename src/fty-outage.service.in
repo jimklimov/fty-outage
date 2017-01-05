@@ -2,18 +2,18 @@
 Description=fty-agent-outage service
 After=malamute.service network.target
 Requires=malamute.service network.target
-PartOf=fty.target
+PartOf=bios.target
 
 [Service]
 Type=simple
-User=fty
+User=bios
 EnvironmentFile=-/usr/share/fty/etc/default/fty
 EnvironmentFile=-/usr/share/fty/etc/default/fty__%n.conf
 EnvironmentFile=-/etc/default/fty
 EnvironmentFile=-/etc/default/fty__%n.conf
 Environment="prefix=@prefix@"
-ExecStart=@prefix@/bin/fty-agent-outage @sysconfdir@/@PACKAGE@/fty-agent-outage.cfg
+ExecStart=@prefix@/bin/fty-outage @sysconfdir@/@PACKAGE@/fty-outage.cfg
 Restart=always
 
 [Install]
-WantedBy=fty.target
+WantedBy=bios.target

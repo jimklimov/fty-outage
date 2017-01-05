@@ -46,11 +46,24 @@ int main (int argc, char *argv [])
             verbose = true;
         else {
             printf ("Unknown option: %s\n", argv [argn]);
-            return 1;
         }
     }
     //  Insert main code here
     if (verbose)
         zsys_info ("fty_agent_outage - Agent outage");
+
+    zactor_t *server = zactor_new (fty_outage_server, "outage");
+    while (true) {
+        char *str = zstr_recv (server);
+        if (str) {
+            puts (str);
+            zstr_free (&str);
+        }
+        else {
+            puts ("Interrupted ...");
+            break;
+        }
+    }
+    zactor_destroy (&server);
     return 0;
 }

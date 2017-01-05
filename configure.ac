@@ -410,15 +410,15 @@ AM_CONDITIONAL(ON_GNU, test "x$fty_outage_on_gnu" = "xyes")
 AM_CONDITIONAL(INSTALL_MAN, test "x$fty_outage_install_man" = "xyes")
 AM_CONDITIONAL(BUILD_DOC, test "x$fty_outage_build_doc" = "xyes")
 
-# Check for fty-agent-outage intent
-AC_ARG_ENABLE([fty-agent-outage],
-    AS_HELP_STRING([--enable-fty-agent-outage],
-        [Compile and install 'fty-agent-outage' [default=yes]]),
-    [enable_fty_agent_outage=$enableval],
-    [enable_fty_agent_outage=yes])
+# Check for fty-outage intent
+AC_ARG_ENABLE([fty-outage],
+    AS_HELP_STRING([--enable-fty-outage],
+        [Compile and install 'fty-outage' [default=yes]]),
+    [enable_fty_outage=$enableval],
+    [enable_fty_outage=yes])
 
-AM_CONDITIONAL([ENABLE_FTY_AGENT_OUTAGE], [test x$enable_fty_agent_outage != xno])
-AM_COND_IF([ENABLE_FTY_AGENT_OUTAGE], [AC_MSG_NOTICE([ENABLE_FTY_AGENT_OUTAGE defined])])
+AM_CONDITIONAL([ENABLE_FTY_OUTAGE], [test x$enable_fty_outage != xno])
+AM_COND_IF([ENABLE_FTY_OUTAGE], [AC_MSG_NOTICE([ENABLE_FTY_OUTAGE defined])])
 
 # Check for fty_outage_selftest intent
 AC_ARG_ENABLE([fty_outage_selftest],
@@ -487,12 +487,12 @@ fi
 AC_CONFIG_FILES([Makefile
                  doc/Makefile
                  src/libfty_outage.pc
-                 src/fty-agent-outage.cfg
+                 src/fty-outage.cfg
                  ])
 
 AM_COND_IF([WITH_SYSTEMD_UNITS],
     [AC_CONFIG_FILES([
-                 src/fty-agent-outage.service
+                 src/fty-outage.service
     ])],
     [])
 
