@@ -55,18 +55,18 @@ int main (int argc, char *argv [])
     //  Insert main code here
     if (verbose)
     {
-        zstr_sendx (self, "VERBOSE", NULL);            
+        zstr_sendx (server, "VERBOSE", NULL);            
         zsys_info ("fty_agent_outage - Agent outage");
     }
     
-    zstr_sendx (self, "STATE-FILE", "/var/lib/bios/agent-outage/state.zpl", NULL);
-    zstr_sendx (self, "TIMEOUT", "30000", NULL);
-    zstr_sendx (self, "CONNECT", "ipc://@/malamute", "fty-outage", NULL);
-    zstr_sendx (self, "PRODUCER", FTY_PROTO_STREAM_ALERTS_SYS, NULL);
-    zstr_sendx (self, "CONSUMER", FTY_PROTO_STREAM_METRICS, ".*", NULL);
-    zstr_sendx (self, "CONSUMER", FTY_PROTO_STREAM_METRICS_UNAVAILABLE, ".*", NULL);
-    zstr_sendx (self, "CONSUMER", FTY_PROTO_STREAM_METRICS_SENSOR, ".*", NULL);
-    zstr_sendx (self, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
+    zstr_sendx (server, "STATE-FILE", "/var/lib/bios/agent-outage/state.zpl", NULL);
+    zstr_sendx (server, "TIMEOUT", "30000", NULL);
+    zstr_sendx (server, "CONNECT", "ipc://@/malamute", "fty-outage", NULL);
+    zstr_sendx (server, "PRODUCER", FTY_PROTO_STREAM_ALERTS_SYS, NULL);
+    zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS, ".*", NULL);
+    zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS_UNAVAILABLE, ".*", NULL);
+    zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS_SENSOR, ".*", NULL);
+    zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
 
     // src/malamute.c, under MPL license
     while (true) {
