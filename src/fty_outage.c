@@ -1,4 +1,4 @@
-
+/*
     fty_agent_outage - Agent outage
 
     Copyright (C) 2014 - 2015 Eaton                                        
