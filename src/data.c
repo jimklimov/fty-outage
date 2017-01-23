@@ -47,12 +47,11 @@ data_put (data_t *self, fty_proto_t  **proto_p)
         return;
 
     // data from fty_proto
-    zhash_t *aux = fty_proto_get_aux (proto);
     const char *source = fty_proto_element_src (proto);
     uint64_t ttl = (uint64_t)fty_proto_ttl (proto);
 
     // getting timestamp from metrics
-    uint64_t timestamp = (uint64_t) zhash_lookup (aux, "AGENT_CM_TIME");    
+    uint64_t timestamp = fty_proto_aux_number (proto, "AGENT_CM_TIME", 0);
     uint64_t expiration_time = timestamp + 2*ttl;
 
     void *rv = zhashx_lookup (self->assets, source);
@@ -70,7 +69,6 @@ data_put (data_t *self, fty_proto_t  **proto_p)
         printf(">>>>table size %zu\n", zhashx_size(self->assets));
     }
     
-    zhash_destroy (&aux);
     fty_proto_destroy(proto_p);
 }
 
