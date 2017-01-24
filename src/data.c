@@ -356,12 +356,12 @@ static void
 test_data_add_sensor (data_t *data, const char *asset_name, const char *port, const char *parent_name)
 {
     fty_proto_t *asset = fty_proto_new (FTY_PROTO_ASSET);
-    fty_proto_set_name (asset, asset_name);
-    fty_proto_set_operation (asset, "create");
-    fty_proto_ext_insert (asset, "port", port);
+    fty_proto_set_name (asset, "%s", asset_name);
+    fty_proto_set_operation (asset, "%s", "create");
+    fty_proto_ext_insert (asset, "port", "%s", port);
     fty_proto_aux_insert (asset, "type", "device");
     fty_proto_aux_insert (asset, "subtype", "sensor");
-    fty_proto_aux_insert (asset, "parent_name.1", parent_name);
+    fty_proto_aux_insert (asset, "parent_name.1", "%s", parent_name);
 
     data_put (data, &asset);
 }
