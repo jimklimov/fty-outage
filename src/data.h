@@ -28,7 +28,10 @@
 extern "C" {
 #endif
 
+#ifndef DATA_T_DEFINED
 typedef struct _data_t data_t;
+#define DATA_T_DEFINED
+#endif
 
 //  @interface
 //  Create a new data
