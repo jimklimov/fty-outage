@@ -1,7 +1,7 @@
 #
-#    fty-outage - Agent that sends alerts when device does not communicate.
+#    fty-outage - Agent that sends alerts when device does not communicate
 #
-#    Copyright (C) 2014 - 2015 Eaton                                        
+#    Copyright (C) 2014 - 2017 Eaton                                        
 #                                                                           
 #    This program is free software; you can redistribute it and/or modify   
 #    it under the terms of the GNU General Public License as published by   
@@ -31,7 +31,7 @@
 Name:           fty-outage
 Version:        1.0.0
 Release:        1
-Summary:        agent that sends alerts when device does not communicate.
+Summary:        agent that sends alerts when device does not communicate
 License:        GPL-2.0+
 URL:            https://42ity.com/
 Source0:        %{name}-%{version}.tar.gz
@@ -56,14 +56,14 @@ BuildRequires:  fty-proto-devel
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
-fty-outage agent that sends alerts when device does not communicate..
+fty-outage agent that sends alerts when device does not communicate.
 
 %package -n libfty_outage1
 Group:          System/Libraries
-Summary:        agent that sends alerts when device does not communicate. shared library
+Summary:        agent that sends alerts when device does not communicate shared library
 
 %description -n libfty_outage1
-This package contains shared library for fty-outage: agent that sends alerts when device does not communicate.
+This package contains shared library for fty-outage: agent that sends alerts when device does not communicate
 
 %post -n libfty_outage1 -p /sbin/ldconfig
 %postun -n libfty_outage1 -p /sbin/ldconfig
@@ -73,7 +73,7 @@ This package contains shared library for fty-outage: agent that sends alerts whe
 %{_libdir}/libfty_outage.so.*
 
 %package devel
-Summary:        agent that sends alerts when device does not communicate.
+Summary:        agent that sends alerts when device does not communicate
 Group:          System/Libraries
 Requires:       libfty_outage1 = %{version}
 Requires:       zeromq-devel
@@ -82,8 +82,8 @@ Requires:       malamute-devel
 Requires:       fty-proto-devel
 
 %description devel
-agent that sends alerts when device does not communicate. development tools
-This package contains development files for fty-outage: agent that sends alerts when device does not communicate.
+agent that sends alerts when device does not communicate development tools
+This package contains development files for fty-outage: agent that sends alerts when device does not communicate
 
 %files devel
 %defattr(-,root,root)
@@ -91,6 +91,7 @@ This package contains development files for fty-outage: agent that sends alerts 
 %{_libdir}/libfty_outage.so
 %{_libdir}/pkgconfig/libfty_outage.pc
 %{_mandir}/man3/*
+%{_mandir}/man7/*
 
 %prep
 %setup -q

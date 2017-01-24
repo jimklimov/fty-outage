@@ -1,7 +1,7 @@
 #
-#    fty-outage - Agent that sends alerts when device does not communicate.
+#    fty-outage - Agent that sends alerts when device does not communicate
 #
-#    Copyright (C) 2014 - 2015 Eaton                                        
+#    Copyright (C) 2014 - 2017 Eaton                                        
 #                                                                           
 #    This program is free software; you can redistribute it and/or modify   
 #    it under the terms of the GNU General Public License as published by   
@@ -24,21 +24,20 @@ Maintainer:     fty-outage Developers <eatonipcopensource@eaton.com>
 Standards-Version: 3.9.7
 Build-Depends: debhelper (>= 9),
     pkg-config,
-    dh-autoreconf,
     libzmq3-dev,
     libczmq-dev,
     libmlm-dev,
     libfty-proto-dev,
     systemd,
-    dh-systemd
-Build-Depends-Indep: asciidoc,
-                     xmlto
+    dh-systemd,
+    asciidoc-base | asciidoc, xmlto,
+    dh-autoreconf
 
 Package: libfty-outage1
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: agent that sends alerts when device does not communicate. shared library
- This package contains shared library for fty-outage: agent that sends alerts when device does not communicate.
+Description: agent that sends alerts when device does not communicate shared library
+ This package contains shared library for fty-outage: agent that sends alerts when device does not communicate
 
 Package: libfty-outage-dev
 Architecture: any
@@ -49,14 +48,14 @@ Depends:
     libmlm-dev,
     libfty-proto-dev,
     libfty-outage1 (= ${binary:Version})
-Description: agent that sends alerts when device does not communicate. development tools
- This package contains development files for fty-outage: agent that sends alerts when device does not communicate.
+Description: agent that sends alerts when device does not communicate development tools
+ This package contains development files for fty-outage: agent that sends alerts when device does not communicate
 
 Package: fty-outage
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
-Description: agent that sends alerts when device does not communicate.
- Main package for fty-outage: agent that sends alerts when device does not communicate.
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: agent that sends alerts when device does not communicate
+ Main package for fty-outage: agent that sends alerts when device does not communicate
 
 Package: fty-outage-dbg
 Architecture: any
@@ -65,6 +64,6 @@ Priority: extra
 Depends:
     fty-outage (= ${binary:Version}),
     ${misc:Depends}
-Description: agent that sends alerts when device does not communicate. debugging symbols
- This package contains the debugging symbols for fty-outage : agent that sends alerts when device does not communicate..
+Description: agent that sends alerts when device does not communicate debugging symbols
+ This package contains the debugging symbols for fty-outage : agent that sends alerts when device does not communicate.
 
