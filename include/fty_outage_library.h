@@ -1,7 +1,7 @@
 /*  =========================================================================
     fty-outage - generated layer of public API
 
-    Copyright (C) 2014 - 2015 Eaton                                        
+    Copyright (C) 2014 - 2017 Eaton                                        
                                                                            
     This program is free software; you can redistribute it and/or modify   
     it under the terms of the GNU General Public License as published by   
@@ -84,6 +84,12 @@ typedef struct _fty_outage_server_t fty_outage_server_t;
 //  Public classes, each with its own header file
 #ifdef FTY_OUTAGE_BUILD_DRAFT_API
 #include "fty_outage_server.h"
+#endif // FTY_OUTAGE_BUILD_DRAFT_API
+
+#ifdef FTY_OUTAGE_BUILD_DRAFT_API
+//  Self test for private classes
+FTY_OUTAGE_EXPORT void
+    fty_outage_private_selftest (bool verbose);
 #endif // FTY_OUTAGE_BUILD_DRAFT_API
 
 #endif

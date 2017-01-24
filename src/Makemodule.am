@@ -31,6 +31,11 @@ src_libfty_outage_la_SOURCES += \
 
 endif
 
+if ENABLE_DRAFTS
+src_libfty_outage_la_SOURCES += \
+    src/fty_outage_private_selftest.c
+endif
+
 src_libfty_outage_la_CPPFLAGS = ${AM_CPPFLAGS}
 
 src_libfty_outage_la_LDFLAGS = \
@@ -60,7 +65,8 @@ bin_PROGRAMS += src/fty-outage
 src_fty_outage_CPPFLAGS = ${AM_CPPFLAGS}
 src_fty_outage_LDADD = ${program_libs}
 src_fty_outage_SOURCES = src/fty_outage.c
-src_fty_outage_config_DATA = src/fty-outage.cfg
+src_fty_outage_config_DATA =
+src_fty_outage_config_DATA += src/fty-outage.cfg
 src_fty_outage_configdir = $(sysconfdir)/fty-outage
 if WITH_SYSTEMD_UNITS
 systemdsystemunit_DATA += src/fty-outage.service

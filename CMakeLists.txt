@@ -159,6 +159,12 @@ IF (ENABLE_DRAFTS)
     )
 ENDIF (ENABLE_DRAFTS)
 
+IF (ENABLE_DRAFTS)
+    list (APPEND fty_outage_sources
+        src/fty_outage_private_selftest.c
+    )
+ENDIF (ENABLE_DRAFTS)
+
 source_group("Source Files" FILES ${fty_outage_sources})
 if (NOT DEFINED BUILD_SHARED_LIBS)
     SET(BUILD_SHARED_LIBS ON)
@@ -167,8 +173,8 @@ add_library(fty_outage ${fty_outage_sources})
 set_target_properties(fty_outage
     PROPERTIES DEFINE_SYMBOL "FTY_OUTAGE_EXPORTS"
 )
-set_target_properties(fty_outage
-    PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
+set_target_properties (fty_outage
+    PROPERTIES SOVERSION "1.0.0"
 )
 target_link_libraries(fty_outage
     ${ZEROMQ_LIBRARIES} ${MORE_LIBRARIES}
@@ -219,9 +225,8 @@ target_link_libraries(
     ${FTY-PROTO_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
-set_target_properties(
-    fty-outage
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
+install(TARGETS fty-outage
+    RUNTIME DESTINATION bin
 )
 add_executable(
     fty_outage_selftest
@@ -235,10 +240,6 @@ target_link_libraries(
     ${MALAMUTE_LIBRARIES}
     ${FTY-PROTO_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
-)
-set_target_properties(
-    fty_outage_selftest
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
 )
 
 ########################################################################
@@ -260,6 +261,12 @@ set(TEST_CLASSES
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
     fty_outage_server
+    )
+ENDIF (ENABLE_DRAFTS)
+
+IF (ENABLE_DRAFTS)
+    list (APPEND TEST_CLASSES
+    private_classes
     )
 ENDIF (ENABLE_DRAFTS)
 
