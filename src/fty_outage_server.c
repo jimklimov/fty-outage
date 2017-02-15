@@ -88,12 +88,13 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
 
     zmsg_t *msg = fty_proto_encode_alert (
             NULL, // aux
+            zclock_time() / 1000,
+            self->timeout_ms * 3,
             "outage", // rule_name
             source_asset,
             alert_state,
             "CRITICAL",
             "Device does not provide expected data. It may be offline or not correctly configured.",
-            zclock_time() / 1000,
             "EMAIL/SMS");
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
@@ -457,17 +458,17 @@ fty_outage_server (zsock_t *pipe, void *args)
                 const char *is_computed = fty_proto_aux_string (bmsg, "x-cm-count", NULL);
                 if ( !is_computed ) {
                     uint64_t now_sec = zclock_time() / 1000;
-                    uint64_t timestamp = fty_proto_aux_number (bmsg, "time", now_sec);
+                    uint64_t timestamp = fty_proto_time (bmsg);
                     if ( fty_proto_aux_string (bmsg, "port", NULL) != NULL ) {
                         // is it from sensor? yes
                         // get sensors attached to the 'asset' on the 'port'! we can have more then 1!
-                        zlist_t *sources = data_get_sensors (self->assets, fty_proto_aux_string (bmsg, "port", NULL), fty_proto_element_src (bmsg));
+                        zlist_t *sources = data_get_sensors (self->assets, fty_proto_aux_string (bmsg, "port", NULL), fty_proto_name (bmsg));
                         for ( char *source = (char *) zlist_first (sources);
                                     source != NULL ;
                                     source = (char *) zlist_next (sources) )
                         {
                             if ( self->verbose )
-                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  fty_proto_element_src (bmsg), fty_proto_aux_string (bmsg, "port", ""));
+                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  fty_proto_name (bmsg), fty_proto_aux_string (bmsg, "port", ""));
                             s_osrv_resolve_alert (self, source);
                             int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
                             if ( rv == -1 )
@@ -477,7 +478,7 @@ fty_outage_server (zsock_t *pipe, void *args)
                     }
                     else {
                         // is it from sensor? no
-                        const char *source = fty_proto_element_src (bmsg);
+                        const char *source = fty_proto_name (bmsg);
                         s_osrv_resolve_alert (self, source);
                         int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
                         if ( rv == -1 )
@@ -572,11 +573,12 @@ fty_outage_server_test (bool verbose)
     // expected: ACTIVE alert to be sent
     sendmsg = fty_proto_encode_metric (
         NULL,
+        time (NULL),
+        1,
         "dev",
         "UPS33",
         "1",
-        "c",
-        1);
+        "c");
 
     rv = mlm_client_send (m_sender, "subject",  &sendmsg);
     assert (rv >= 0);
@@ -588,7 +590,7 @@ fty_outage_server_test (bool verbose)
     assert (bmsg);
     if (verbose)
         fty_proto_print (bmsg);
-    assert (streq (fty_proto_element_src (bmsg), "UPS33"));
+    assert (streq (fty_proto_name (bmsg), "UPS33"));
     assert (streq (fty_proto_state (bmsg), "ACTIVE"));
     fty_proto_destroy (&bmsg);
 
@@ -596,11 +598,12 @@ fty_outage_server_test (bool verbose)
     // expected: RESOLVED alert to be sent
     sendmsg = fty_proto_encode_metric (
         NULL,
+        time (NULL),
+        1000,
         "dev",
         "UPS33",
         "1",
-        "c",
-        1000);
+        "c");
 
     rv = mlm_client_send (m_sender, "subject",  &sendmsg);
     assert (rv >= 0);
@@ -611,7 +614,7 @@ fty_outage_server_test (bool verbose)
     assert (bmsg);
     if (verbose)
         fty_proto_print (bmsg);
-    assert (streq (fty_proto_element_src (bmsg), "UPS33"));
+    assert (streq (fty_proto_name (bmsg), "UPS33"));
     assert (streq (fty_proto_state (bmsg), "RESOLVED"));
     fty_proto_destroy (&bmsg);
 
@@ -644,7 +647,7 @@ fty_outage_server_test (bool verbose)
     assert (bmsg);
     if (verbose)
         fty_proto_print (bmsg);
-    assert (streq (fty_proto_element_src (bmsg), "UPS42"));
+    assert (streq (fty_proto_name (bmsg), "UPS42"));
     assert (streq (fty_proto_state (bmsg), "ACTIVE"));
     fty_proto_destroy (&bmsg);
 
@@ -668,7 +671,7 @@ fty_outage_server_test (bool verbose)
     assert (bmsg);
     if (verbose)
         fty_proto_print (bmsg);
-    assert (streq (fty_proto_element_src (bmsg), "UPS42"));
+    assert (streq (fty_proto_name (bmsg), "UPS42"));
     assert (streq (fty_proto_state (bmsg), "RESOLVED"));
     fty_proto_destroy (&bmsg);
 
