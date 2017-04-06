@@ -64,6 +64,8 @@ src/.dirstamp
 # CMake cache
 CMakeCache.txt
 CMakeFiles/
+CMakeList*
+builds/cmake/
 CTestTestfile.cmake
 cmake_install.cmake
 compile_commands.json
