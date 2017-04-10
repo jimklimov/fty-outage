@@ -1,5 +1,5 @@
 [Unit]
-Description=fty-agent-outage service
+Description=fty-outage service
 After=malamute.service network.target
 Requires=malamute.service network.target
 PartOf=bios.target
