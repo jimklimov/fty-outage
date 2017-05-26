@@ -1,4 +1,4 @@
-#   fty-agent-outage configuration
+#   fty-outage configuration
 
 server
     timeout = 10000     #   Client connection timeout, msec

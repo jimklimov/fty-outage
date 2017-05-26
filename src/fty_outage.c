@@ -35,7 +35,7 @@ int main (int argc, char *argv [])
     for (argn = 1; argn < argc; argn++) {
         if (streq (argv [argn], "--help")
         ||  streq (argv [argn], "-h")) {
-            puts ("fty-agent-outage [options] ...");
+            puts ("fty-outage [options] ...");
             puts ("  --verbose / -v         verbose test output");
             puts ("  --help / -h            this information");
             return 0;
@@ -50,16 +50,16 @@ int main (int argc, char *argv [])
     }
     if (getenv ("BIOS_LOG_LEVEL") && streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG"))
         verbose = true;
-    
-    zactor_t *server = zactor_new (fty_outage_server, "outage");    
+
+    zactor_t *server = zactor_new (fty_outage_server, "outage");
     //  Insert main code here
     if (verbose)
     {
-        zstr_sendx (server, "VERBOSE", NULL);            
+        zstr_sendx (server, "VERBOSE", NULL);
         zsys_info ("fty_agent_outage - Agent outage");
     }
-    
-    zstr_sendx (server, "STATE-FILE", "/var/lib/bios/agent-outage/state.zpl", NULL);
+
+    zstr_sendx (server, "STATE-FILE", "/var/lib/fty/fty-outage/state.zpl", NULL);
     zstr_sendx (server, "TIMEOUT", "30000", NULL);
     zstr_sendx (server, "CONNECT", "ipc://@/malamute", "fty-outage", NULL);
     zstr_sendx (server, "PRODUCER", FTY_PROTO_STREAM_ALERTS_SYS, NULL);
