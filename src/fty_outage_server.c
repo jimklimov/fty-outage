@@ -1,21 +1,21 @@
 /*  =========================================================================
     fty_outage_server - 42ity outage server
 
-    Copyright (C) 2014 - 2017 Eaton                                        
-                                                                           
-    This program is free software; you can redistribute it and/or modify   
-    it under the terms of the GNU General Public License as published by   
-    the Free Software Foundation; either version 2 of the License, or      
-    (at your option) any later version.                                    
-                                                                           
-    This program is distributed in the hope that it will be useful,        
-    but WITHOUT ANY WARRANTY; without even the implied warranty of         
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
-    GNU General Public License for more details.                           
-                                                                           
+    Copyright (C) 2014 - 2017 Eaton
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
     =========================================================================
 */
 
@@ -30,7 +30,7 @@
 
 #include "fty_outage_classes.h"
 #include "data.h"
-    
+
 static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
 
 typedef struct _s_osrv_t {
@@ -63,7 +63,7 @@ s_osrv_new ()
     s_osrv_t *self = (s_osrv_t*) zmalloc (sizeof (s_osrv_t));
     if (self) {
         self->client = mlm_client_new ();
-        if (self->client) 
+        if (self->client)
             self->assets = data_new ();
         if (self->assets)
             self->active_alerts = zhash_new ();
@@ -104,12 +104,12 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
         zsys_debug ("Alert '%s' is '%s'", subject, alert_state);
     int rv = mlm_client_send (self->client, subject, &msg);
     if ( rv != 0 )
-        zsys_error ("Cannot send alert on '%s' (mlm_cleint_send)", source_asset);
+        zsys_error ("Cannot send alert on '%s' (mlm_client_send)", source_asset);
     zstr_free (&subject);
 }
 
 // if for asset 'source-asset' the 'outage' alert is tracked
-// * publish alert in RESOLVE state for asset 'source-asset' 
+// * publish alert in RESOLVE state for asset 'source-asset'
 // * removes alert from the list of the active alerts
 static void
 s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
@@ -126,7 +126,7 @@ s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
 }
 
 // if for asset 'source-asset' the 'outage' alert is NOT tracked
-// * publish alert in ACTIVE state for asset 'source-asset' 
+// * publish alert in ACTIVE state for asset 'source-asset'
 // * adds alert to the list of the active alerts
 static void
 s_osrv_activate_alert (s_osrv_t* self, const char* source_asset)
@@ -270,19 +270,19 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     {
 	    char *endpoint = zmsg_popstr (message);
 		char *name = zmsg_popstr (message);
-                
+
 		if (endpoint && name) {
             if (self->verbose)
                 zsys_debug ("outage_actor: CONNECT: %s/%s", endpoint, name);
 		    int rv = mlm_client_connect (self->client, endpoint, 1000, name);
-            if (rv == -1) 
+            if (rv == -1)
 			    zsys_error("mlm_client_connect failed\n");
 	    }
-               
+
 		zstr_free (&endpoint);
 		zstr_free (&name);
-            
-    }    
+
+    }
     else
     if (streq (command, "CONSUMER"))
     {
@@ -304,7 +304,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     if (streq (command, "PRODUCER"))
     {
         char *stream = zmsg_popstr(message);
-                
+
         if (stream){
             if (self->verbose)
                 zsys_debug ("outage_actor: PRODUCER: %s", stream);
@@ -450,9 +450,9 @@ fty_outage_server (zsock_t *pipe, void *args)
             }
 
             fty_proto_t *bmsg = fty_proto_decode (&message);
-            if (!bmsg) 
+            if (!bmsg)
                 continue;
-            
+
             // resolve sent alert
             if (fty_proto_id (bmsg) == FTY_PROTO_METRIC) {
                 const char *is_computed = fty_proto_aux_string (bmsg, "x-cm-count", NULL);
@@ -531,7 +531,7 @@ fty_outage_server_test (bool verbose)
     assert (rv >= 0);
     rv = mlm_client_set_producer (m_sender, "METRICS");
     assert (rv >= 0);
-    
+
     mlm_client_t *a_sender = mlm_client_new();
     rv = mlm_client_connect (a_sender, endpoint, 5000, "a_sender");
     assert (rv >= 0);
@@ -680,7 +680,7 @@ fty_outage_server_test (bool verbose)
     mlm_client_destroy (&a_sender);
     mlm_client_destroy (&consumer);
     zactor_destroy (&server);
-    
+
     //  @end
 
     // Those are PRIVATE to actor, so won't be a part of documentation
