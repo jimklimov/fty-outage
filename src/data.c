@@ -1,21 +1,21 @@
 /*  =========================================================================
     data - Data
 
-    Copyright (C) 2014 - 2017 Eaton                                        
-                                                                           
-    This program is free software; you can redistribute it and/or modify   
-    it under the terms of the GNU General Public License as published by   
-    the Free Software Foundation; either version 2 of the License, or      
-    (at your option) any later version.                                    
-                                                                           
-    This program is distributed in the hope that it will be useful,        
-    but WITHOUT ANY WARRANTY; without even the implied warranty of         
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
-    GNU General Public License for more details.                           
-                                                                           
+    Copyright (C) 2014 - 2017 Eaton
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
     =========================================================================
 */
 
@@ -34,9 +34,9 @@
 
 //  Structure of our class
 typedef struct _expiration_t {
-    uint64_t ttl_sec; // [s] minimal ttl seen for some asset
-    uint64_t last_time_seen_sec; // [s] time when  some metrics were seen for this asset
-    fty_proto_t *msg; // asset represetation
+    uint64_t ttl_sec;                      // [s] minimal ttl seen for some asset
+    uint64_t last_time_seen_sec;           // [s] time when  some metrics were seen for this asset
+    fty_proto_t *msg;                      // asset represetation
 } expiration_t;
 
 static expiration_t*
@@ -129,10 +129,10 @@ data_new (void)
         self -> assets = zhashx_new();
         if ( self->assets ) {
             self->verbose = false;
-            self->default_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC; 
+            self->default_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
             zhashx_set_destructor (self -> assets,  (zhashx_destructor_fn *) expiration_destroy);
         }
-        else 
+        else
             data_destroy (&self);
     }
     return self;
@@ -171,7 +171,7 @@ data_set_default_expiry (data_t* self, uint64_t expiry_sec)
 //  return -1, if data are from future and are ignored as damaging
 //  return 0 otherwise
 int
-data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint64_t ttl, uint64_t now_sec) 
+data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint64_t ttl, uint64_t now_sec)
 {
     assert (self);
     assert (asset_name);
@@ -197,9 +197,9 @@ data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint
 }
 
 //  ------------------------------------------------------------------------
-//  put data 
+//  put data
 void
-data_put (data_t *self, fty_proto_t **proto_p) 
+data_put (data_t *self, fty_proto_t **proto_p)
 {
     assert (self);
     assert (proto_p);
@@ -220,7 +220,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
 
     // remove asset from cache
     const char* sub_type = fty_proto_aux_string (proto, FTY_PROTO_ASSET_SUBTYPE, "");
-    if (    streq (operation, FTY_PROTO_ASSET_OP_DELETE) 
+    if (    streq (operation, FTY_PROTO_ASSET_OP_DELETE)
          || streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_STATUS, ""), "retired") )
     {
         data_delete (self, asset_name);
@@ -230,7 +230,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
     }
     else
     // other asset operations - add ups, epdu or sensors to the cache if not present
-    if (    streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_TYPE, ""), "device" ) 
+    if (    streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_TYPE, ""), "device" )
          && (   streq (sub_type, "ups")
              || streq (sub_type, "epdu")
              || streq (sub_type, "sensor")
@@ -269,6 +269,25 @@ data_delete (data_t *self, const char* source)
     zhashx_delete (self->assets, source);
 }
 
+//
+char*
+convert_port (const char *old_port)
+{
+    if (streq (old_port, "9"))
+        return "TH1";
+    else
+    if(streq (old_port, "10"))
+        return "TH2";
+    else
+    if(streq (old_port, "11"))
+        return "TH3";
+    else
+    if(streq (old_port, "12"))
+        return "TH4";
+    else
+        return "";
+}
+
 // --------------------------------------------------------------------------
 // get all sensors assigned to port 'port' on the device 'parent_name'
 // return NULL in case of memory issues
@@ -285,11 +304,28 @@ data_get_sensors (data_t *self, const char *port, const char *parent_name)
     if ( sensors ) {
         zlist_autofree (sensors);
         for ( expiration_t *asset = (expiration_t *) zhashx_first (self->assets); asset != NULL ; asset = (expiration_t *) zhashx_next (self->assets) ) {
+
             if (    streq (fty_proto_ext_string (asset->msg, "port", ""), port)
                  && streq (fty_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name) )
             {
                 zlist_push (sensors, (void *) fty_proto_name (asset->msg));
             }
+            else
+            {
+                const char *new_port = convert_port (fty_proto_ext_string (asset->msg, "port", ""));
+                if (new_port)
+                {
+                    if (streq (new_port, port) &&
+                        streq (fty_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name))
+                    {
+                        zlist_push (sensors, (void *) fty_proto_name (asset->msg));
+
+                        if ( self->verbose )
+                            zsys_info ("get_sensors: port %s converted to %s", fty_proto_ext_string (asset->msg, "port", ""), new_port);
+                    }
+                }
+            }
+
         }
     }
     else {
@@ -300,7 +336,7 @@ data_get_sensors (data_t *self, const char *port, const char *parent_name)
 }
 
 // --------------------------------------------------------------------------
-// get non-responding devices 
+// get non-responding devices
 zlistx_t *
 data_get_dead (data_t *self)
 {
@@ -308,12 +344,12 @@ data_get_dead (data_t *self)
     // list of devices
     zlistx_t *dead = zlistx_new();
 
-    uint64_t now_sec = zclock_time() / 1000;        
+    uint64_t now_sec = zclock_time() / 1000;
     if ( self->verbose ) {
         zsys_debug ("now=%" PRIu64 "s", now_sec);
     }
-    for (expiration_t *e =  (expiration_t *) zhashx_first (self->assets); 
-        e != NULL;                 
+    for (expiration_t *e =  (expiration_t *) zhashx_first (self->assets);
+        e != NULL;
 	    e = (expiration_t *) zhashx_next (self->assets))
     {
         void *asset_name = (void*) zhashx_cursor(self->assets);
@@ -321,11 +357,11 @@ data_get_dead (data_t *self)
             zsys_debug ("asset: name=%s, ttl=%" PRIu64 ", expires_at=%" PRIu64, asset_name, e->ttl_sec, expiration_get (e));
         }
         if ( expiration_get (e) <= now_sec)
-        {   
+        {
             assert(zlistx_add_start (dead, asset_name));
         }
-    }    
-    
+    }
+
     return dead;
 }
 
@@ -337,7 +373,7 @@ zhashx_get_expiration_test (data_t *self, char *source)
     assert(self);
     expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, source);
     return expiration_get (e);
-}   
+}
 
 // print content of zlistx
 void
@@ -381,11 +417,11 @@ void test1 (bool verbose)
     if ( verbose )
         zsys_info ("%s: check data_get_sensors", __func__);
     data_t *data = data_new();
-    
+
     test_data_add_sensor (data, "sensor1", "port1", "parent_1");
     test_data_add_sensor (data, "sensor2", "port1", "parent_1");
     test_data_add_sensor (data, "sensor3", "port3", "parent_1");
-    
+
     test_data_add_sensor (data, "sensor4", "port1", "parent_2");
     test_data_add_sensor (data, "sensor5", "port3", "parent_2");
     test_data_add_sensor (data, "sensor6", "port3", "parent_2");
@@ -439,7 +475,7 @@ void test2 (bool verbose)
 
     fty_proto_t *msg = fty_proto_new (FTY_PROTO_ASSET);
     expiration_t *e = expiration_new(10, &msg);
-    
+
     expiration_destroy (&e);
     if ( verbose )
         zsys_info ("%s: OK", __func__);
@@ -449,27 +485,27 @@ void test3 (bool verbose)
 {
     if ( verbose )
         zsys_info ("%s: expiration update/update_ttl test", __func__);
-    
+
     fty_proto_t *msg = fty_proto_new (FTY_PROTO_ASSET);
     expiration_t *e = expiration_new (10, &msg);
     zclock_sleep (1000);
-    
+
     uint64_t old_last_seen_date = e->last_time_seen_sec;
     expiration_update (e, zclock_time() / 1000);
-    assert ( e->last_time_seen_sec != old_last_seen_date ); 
-   
-    // from past!! 
+    assert ( e->last_time_seen_sec != old_last_seen_date );
+
+    // from past!!
     old_last_seen_date = e->last_time_seen_sec;
     expiration_update (e, zclock_time() / 1000 - 10000);
     assert ( e->last_time_seen_sec == old_last_seen_date );
 
     expiration_update_ttl (e, 1);
     assert ( e->ttl_sec == 1 );
-    
+
     expiration_update_ttl (e, 10);
     assert ( e->ttl_sec == 1 ); // because 10 > 1
 
-    assert ( expiration_get (e) == old_last_seen_date + 1 * 2 );    
+    assert ( expiration_get (e) == old_last_seen_date + 1 * 2 );
     expiration_destroy (&e);
 
     if ( verbose )
@@ -487,18 +523,18 @@ data_test (bool verbose)
     test0 (verbose);
 
     test1 (verbose);
-    
+
     test2 (verbose);
-    
+
     test3 (verbose);
-   
+
     //  aux data for metric - var_name | msg issued
     zhash_t *aux = zhash_new();
 
     zhash_update(aux,"key1", "val1");
     zhash_update(aux,"time" , "2");
     zhash_update(aux,"key2" , "val2");
-    
+
     // key | expiration (t+2*ttl)
     data_t *data = data_new ();
     data_set_verbose (data, verbose);
@@ -509,7 +545,7 @@ data_test (bool verbose)
     data_set_default_expiry (data, 42);
     assert (data_default_expiry (data) == 42);
     data_set_default_expiry (data, 2);
-    
+
     // create asset first
     zhash_t *asset_aux = zhash_new ();
     zhash_insert (asset_aux, "type", "device");
@@ -530,18 +566,18 @@ data_test (bool verbose)
     // create new metric UPS4 - exp NOK
     uint64_t now_sec = zclock_time() / 1000;
     int rv = data_touch_asset(data, "UPS4", now_sec, 3, now_sec);
-    
+
     // create new metric UPS3 - exp NOT OK
     now_sec = zclock_time() / 1000;
     rv = data_touch_asset(data, "UPS3", now_sec, 1, now_sec);
-    
+
     zclock_sleep (5000);
     // give me dead devices
     zlistx_t *list = data_get_dead(data);
     if (verbose)
         zlistx_print_dead(list);
     assert (zlistx_size (list) == 2);
-    
+
     zlistx_destroy (&list);
 
     // update metric - exp OK
@@ -572,7 +608,7 @@ data_test (bool verbose)
         zsys_debug ("diff=%"PRIi64, diff);
     assert ( diff <= (data_default_expiry (data) * 2));
     // TODO: test it more
-     
+
     zlistx_destroy(&list);
     fty_proto_destroy(&proto_n);
     zhash_destroy(&aux);
