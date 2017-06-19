@@ -454,7 +454,7 @@ fty_outage_server (zsock_t *pipe, void *args)
                 continue;
 
             // resolve sent alert
-            if (fty_proto_id (bmsg) == FTY_PROTO_METRIC) {
+            if (fty_proto_id (bmsg) == FTY_PROTO_METRIC || streq (mlm_client_address (self->client), FTY_PROTO_STREAM_METRICS_SENSOR)) {
                 const char *is_computed = fty_proto_aux_string (bmsg, "x-cm-count", NULL);
                 if ( !is_computed ) {
                     uint64_t now_sec = zclock_time() / 1000;
