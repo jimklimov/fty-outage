@@ -165,7 +165,6 @@ data_set_default_expiry (data_t* self, uint64_t expiry_sec)
     self->default_expiry_sec = expiry_sec;
 }
 
-
 //  ------------------------------------------------------------------------
 //  update information about expiration time
 //  return -1, if data are from future and are ignored as damaging
@@ -215,6 +214,8 @@ data_put (data_t *self, fty_proto_t **proto_p)
 
     const char *operation = fty_proto_operation (proto);
     const char *asset_name = fty_proto_name (proto);
+    const char *status = fty_proto_aux_string (proto, "status", "");
+
     if (self->verbose)
         zsys_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
 
@@ -235,6 +236,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
              || streq (sub_type, "epdu")
              || streq (sub_type, "sensor")
             )
+            && streq (status, "active")
        )
     {
         // this asset is not known yet -> add it to the cache
