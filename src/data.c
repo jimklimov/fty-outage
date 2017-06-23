@@ -165,7 +165,6 @@ data_set_default_expiry (data_t* self, uint64_t expiry_sec)
     self->default_expiry_sec = expiry_sec;
 }
 
-
 //  ------------------------------------------------------------------------
 //  update information about expiration time
 //  return -1, if data are from future and are ignored as damaging
@@ -215,13 +214,16 @@ data_put (data_t *self, fty_proto_t **proto_p)
 
     const char *operation = fty_proto_operation (proto);
     const char *asset_name = fty_proto_name (proto);
+
     if (self->verbose)
         zsys_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
 
     // remove asset from cache
     const char* sub_type = fty_proto_aux_string (proto, FTY_PROTO_ASSET_SUBTYPE, "");
     if (    streq (operation, FTY_PROTO_ASSET_OP_DELETE)
-         || streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_STATUS, ""), "retired") )
+         || streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_STATUS, ""), "retired")
+         || streq (fty_proto_aux_string (proto, FTY_PROTO_ASSET_STATUS, ""), "nonactive")
+    )
     {
         data_delete (self, asset_name);
         if (self->verbose)
@@ -234,6 +236,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
          && (   streq (sub_type, "ups")
              || streq (sub_type, "epdu")
              || streq (sub_type, "sensor")
+             || streq (sub_type, "sensorgpio")
             )
        )
     {
@@ -269,7 +272,8 @@ data_delete (data_t *self, const char* source)
     zhashx_delete (self->assets, source);
 }
 
-//
+// --------------------------------------------------------------------------
+// RC3 ports are labeled by 9, 10, ... but internaly we use TH1, TH2, ...
 char*
 convert_port (const char *old_port)
 {
