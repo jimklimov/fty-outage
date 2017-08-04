@@ -213,6 +213,27 @@ s_osrv_load (s_osrv_t *self)
     return 0;
 }
 
+bool
+is_gpio (const char* port)
+{
+    size_t lenpre = strlen("GP"),
+           lenstr = strlen(port);
+
+    return lenstr < lenpre ? false : strncmp("GP", port, lenpre) == 0;
+}
+
+// since asset msgs and metrics keep port number in different format :-/
+char*
+process_port (const char* port)
+{
+    char *new_port = NULL;
+    new_port = strstr (port,"I");
+    if (new_port == NULL)
+        new_port = strstr (port,"O");
+
+    return ++new_port;
+}
+
 static void
 s_osrv_check_dead_devices (s_osrv_t *self)
 {
@@ -238,13 +259,7 @@ s_osrv_check_dead_devices (s_osrv_t *self)
     }
     zlistx_destroy (&dead_devices);
 }
-static bool 
-s_osrv_starts_with(const char *str, const char *pre)
-{
-    size_t lenpre = strlen(pre),
-           lenstr = strlen(str);
-    return lenstr < lenpre ? false : strncmp(pre, str, lenpre) == 0;
-}
+
 /*
  * return values :
  * 1 - $TERM recieved
@@ -465,27 +480,24 @@ fty_outage_server (zsock_t *pipe, void *args)
                 if ( !is_computed ) {
                     uint64_t now_sec = zclock_time() / 1000;
                     uint64_t timestamp = fty_proto_time (bmsg);
-                    if ( fty_proto_aux_string (bmsg, "port", NULL) != NULL &&
-                         s_osrv_starts_with(fty_proto_aux_string (bmsg, "port", NULL),"GP"))  {
-                        // is it from sensorgpio? yes
-                        const char *source = fty_proto_name (bmsg);
-                        zsys_debug ("Sensor '%s' /'%s' is still alive", source, fty_proto_aux_string (bmsg, "port", ""));
-                        s_osrv_resolve_alert (self, source);
-                        int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
-                        if ( rv == -1 )
-                            zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
-                    }else
-                    if ( fty_proto_aux_string (bmsg, "port", NULL) != NULL && //check sensor port
-                        !s_osrv_starts_with(fty_proto_aux_string (bmsg, "port", NULL),"GP")) { //exclude GPIO port
+                    const char* port = NULL;
+
+                    if (fty_proto_aux_string (bmsg, "port", NULL) != NULL ) {
                         // is it from sensor? yes
                         // get sensors attached to the 'asset' on the 'port'! we can have more then 1!
-                        zlist_t *sources = data_get_sensors (self->assets, fty_proto_aux_string (bmsg, "port", NULL), fty_proto_name (bmsg));
+
+                        if (is_gpio (fty_proto_aux_string (bmsg, "port", NULL)))
+                            port = process_port (fty_proto_aux_string (bmsg, "port", NULL));
+                        else
+                            port = fty_proto_aux_string (bmsg, "port", NULL);
+
+                        zlist_t *sources = data_get_sensors (self->assets, port, fty_proto_name (bmsg));
                         for ( char *source = (char *) zlist_first (sources);
                                     source != NULL ;
                                     source = (char *) zlist_next (sources) )
                         {
                             if ( self->verbose )
-                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  fty_proto_name (bmsg), fty_proto_aux_string (bmsg, "port", ""));
+                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  fty_proto_name (bmsg), fty_proto_aux_string (bmsg, "port", NULL));
                             s_osrv_resolve_alert (self, source);
                             int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
                             if ( rv == -1 )
@@ -494,7 +506,7 @@ fty_outage_server (zsock_t *pipe, void *args)
                         zlist_destroy (&sources);
                     }
                     else {
-                        // is it from sensor|sensorgpio? no
+                        // is it from sensor? no
                         const char *source = fty_proto_name (bmsg);
                         s_osrv_resolve_alert (self, source);
                         int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
