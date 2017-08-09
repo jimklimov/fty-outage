@@ -237,6 +237,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
              || streq (sub_type, "epdu")
              || streq (sub_type, "sensor")
              || streq (sub_type, "sensorgpio")
+             || streq (sub_type, "sts")
             )
        )
     {
