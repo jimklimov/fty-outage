@@ -17,7 +17,6 @@ EnvironmentFile=-@sysconfdir@/default/bios__%n.conf
 EnvironmentFile=-@sysconfdir@/default/fty
 EnvironmentFile=-@sysconfdir@/default/fty__%n.conf
 Environment="prefix=@prefix@"
-EnvironmentFile=-@sysconfdir@/default/bios-db-ro
 ExecStart=@prefix@/bin/fty-outage @sysconfdir@/@PACKAGE@/fty-outage.cfg
 
 [Install]
