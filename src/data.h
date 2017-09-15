@@ -63,13 +63,6 @@ FTY_OUTAGE_EXPORT void
 FTY_OUTAGE_EXPORT zlistx_t *
     data_get_dead (data_t *self);
 
-//  get all sensors assigned to port 'port' on the device 'parent_name'
-//  return NULL in case of memory issues
-//  empty list if nothing was found
-//  ownership of the list is transferd to the caller and he is responsible for destroying it
-FTY_OUTAGE_EXPORT zlist_t *
-    data_get_sensors (data_t *self, const char *port, const char *parent_name);
-
 //  update information about expiration time
 //  return -1, if data are from future and are ignored as damaging
 //  return 0 otherwise
