@@ -213,27 +213,6 @@ s_osrv_load (s_osrv_t *self)
     return 0;
 }
 
-bool
-is_gpio (const char* port)
-{
-    size_t lenpre = strlen("GP"),
-           lenstr = strlen(port);
-
-    return lenstr < lenpre ? false : strncmp("GP", port, lenpre) == 0;
-}
-
-// since asset msgs and metrics keep port number in different format :-/
-char*
-process_port (const char* port)
-{
-    char *new_port = NULL;
-    new_port = strstr (port,"I");
-    if (new_port == NULL)
-        new_port = strstr (port,"O");
-
-    return ++new_port;
-}
-
 static void
 s_osrv_check_dead_devices (s_osrv_t *self)
 {
@@ -480,30 +459,24 @@ fty_outage_server (zsock_t *pipe, void *args)
                 if ( !is_computed ) {
                     uint64_t now_sec = zclock_time() / 1000;
                     uint64_t timestamp = fty_proto_time (bmsg);
-                    const char* port = NULL;
+                    const char* port = fty_proto_aux_string (bmsg, FTY_PROTO_METRICS_SENSOR_AUX_PORT, NULL);
 
-                    if (fty_proto_aux_string (bmsg, "port", NULL) != NULL ) {
+                    if (port != NULL ) {
                         // is it from sensor? yes
                         // get sensors attached to the 'asset' on the 'port'! we can have more then 1!
-
-                        if (is_gpio (fty_proto_aux_string (bmsg, "port", NULL)))
-                            port = process_port (fty_proto_aux_string (bmsg, "port", NULL));
-                        else
-                            port = fty_proto_aux_string (bmsg, "port", NULL);
-
-                        zlist_t *sources = data_get_sensors (self->assets, port, fty_proto_name (bmsg));
-                        for ( char *source = (char *) zlist_first (sources);
-                                    source != NULL ;
-                                    source = (char *) zlist_next (sources) )
-                        {
-                            if ( self->verbose )
-                                zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  fty_proto_name (bmsg), fty_proto_aux_string (bmsg, "port", NULL));
-                            s_osrv_resolve_alert (self, source);
-                            int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
-                            if ( rv == -1 )
-                                zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
+                        const char *source = fty_proto_aux_string (bmsg, FTY_PROTO_METRICS_SENSOR_AUX_SNAME, NULL);
+                        if (NULL == source) {
+                            zsys_error("Sensor message malformed: found %s='%s' but %s is missing", FTY_PROTO_METRICS_SENSOR_AUX_PORT,
+                                    port, FTY_PROTO_METRICS_SENSOR_AUX_SNAME);
+                            continue;
                         }
-                        zlist_destroy (&sources);
+                        if ( self->verbose ) {
+                            zsys_debug ("Sensor '%s' on '%s'/'%s' is still alive", source,  fty_proto_name (bmsg), port);
+                        }
+                        s_osrv_resolve_alert (self, source);
+                        int rv = data_touch_asset (self->assets, source, timestamp, fty_proto_ttl (bmsg), now_sec);
+                        if ( rv == -1 )
+                            zsys_error ("asset: name = %s, topic=%s metric is from future! ignore it", source, mlm_client_subject (self->client));
                     }
                     else {
                         // is it from sensor? no

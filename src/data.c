@@ -294,53 +294,6 @@ convert_port (const char *old_port)
 }
 
 // --------------------------------------------------------------------------
-// get all sensors assigned to port 'port' on the device 'parent_name'
-// return NULL in case of memory issues
-// empty list if nothing was found
-// ownership of the list is transferd to the caller and he is responsible for destroying it
-zlist_t *
-data_get_sensors (data_t *self, const char *port, const char *parent_name)
-{
-    assert (self);
-    assert (port);
-    assert (parent_name);
-
-    zlist_t *sensors = zlist_new();
-    if ( sensors ) {
-        zlist_autofree (sensors);
-        for ( expiration_t *asset = (expiration_t *) zhashx_first (self->assets); asset != NULL ; asset = (expiration_t *) zhashx_next (self->assets) ) {
-
-            if (    streq (fty_proto_ext_string (asset->msg, "port", ""), port)
-                 && streq (fty_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name) )
-            {
-                zlist_push (sensors, (void *) fty_proto_name (asset->msg));
-            }
-            else
-            {
-                const char *new_port = convert_port (fty_proto_ext_string (asset->msg, "port", ""));
-                if (new_port)
-                {
-                    if (streq (new_port, port) &&
-                        streq (fty_proto_aux_string (asset->msg, "parent_name.1", ""), parent_name))
-                    {
-                        zlist_push (sensors, (void *) fty_proto_name (asset->msg));
-
-                        if ( self->verbose )
-                            zsys_info ("get_sensors: port %s converted to %s", fty_proto_ext_string (asset->msg, "port", ""), new_port);
-                    }
-                }
-            }
-
-        }
-    }
-    else {
-        // intentionally left empty
-        // handle memory error
-    }
-    return sensors;
-}
-
-// --------------------------------------------------------------------------
 // get non-responding devices
 zlistx_t *
 data_get_dead (data_t *self)
@@ -392,82 +345,11 @@ zlistx_print_dead (zlistx_t *self) {
     }
 }
 
-
-static void
-test_data_add_sensor (data_t *data, const char *asset_name, const char *port, const char *parent_name)
-{
-    fty_proto_t *asset = fty_proto_new (FTY_PROTO_ASSET);
-    fty_proto_set_name (asset, "%s", asset_name);
-    fty_proto_set_operation (asset, "%s", "create");
-    fty_proto_ext_insert (asset, "port", "%s", port);
-    fty_proto_aux_insert (asset, "type", "device");
-    fty_proto_aux_insert (asset, "subtype", "sensor");
-    fty_proto_aux_insert (asset, "parent_name.1", "%s", parent_name);
-
-    data_put (data, &asset);
-}
-
 void test0 (bool verbose)
 {
     if ( verbose )
         zsys_info ("%s: data new/destroy test", __func__);
     data_t *data = data_new();
-    data_destroy (&data);
-    if ( verbose )
-        zsys_info ("%s: OK", __func__);
-}
-
-void test1 (bool verbose)
-{
-    if ( verbose )
-        zsys_info ("%s: check data_get_sensors", __func__);
-    data_t *data = data_new();
-
-    test_data_add_sensor (data, "sensor1", "port1", "parent_1");
-    test_data_add_sensor (data, "sensor2", "port1", "parent_1");
-    test_data_add_sensor (data, "sensor3", "port3", "parent_1");
-
-    test_data_add_sensor (data, "sensor4", "port1", "parent_2");
-    test_data_add_sensor (data, "sensor5", "port3", "parent_2");
-    test_data_add_sensor (data, "sensor6", "port3", "parent_2");
-    test_data_add_sensor (data, "sensor7", "port2", "parent_2");
-
-    zlist_t *sensors = NULL;
-    sensors = data_get_sensors (data, "port1", "parent_1");
-    assert (sensors);
-    assert (zlist_size (sensors) == 2);
-    zlist_destroy (&sensors);
-
-    sensors = data_get_sensors (data, "port3", "parent_1");
-    assert (sensors);
-    assert (zlist_size (sensors) == 1);
-    zlist_destroy (&sensors);
-
-    sensors = data_get_sensors (data, "port4", "parent_1");
-    assert (sensors);
-    assert (zlist_size (sensors) == 0);
-    zlist_destroy (&sensors);
-
-    sensors = data_get_sensors (data, "port1", "parent_2");
-    assert (sensors);
-    assert (zlist_size (sensors) == 1);
-    zlist_destroy (&sensors);
-
-    sensors = data_get_sensors (data, "port3", "parent_2");
-    assert (sensors);
-    assert (zlist_size (sensors) == 2);
-    zlist_destroy (&sensors);
-
-    sensors = data_get_sensors (data, "port2", "parent_2");
-    assert (sensors);
-    assert (zlist_size (sensors) == 1);
-    zlist_destroy (&sensors);
-
-    sensors = data_get_sensors (data, "port4", "parent_2");
-    assert (sensors);
-    assert (zlist_size (sensors) == 0);
-    zlist_destroy (&sensors);
-
     data_destroy (&data);
     if ( verbose )
         zsys_info ("%s: OK", __func__);
@@ -526,8 +408,6 @@ data_test (bool verbose)
     printf (" * data: \n");
 
     test0 (verbose);
-
-    test1 (verbose);
 
     test2 (verbose);
 
