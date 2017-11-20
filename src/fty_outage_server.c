@@ -86,6 +86,9 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     assert (source_asset);
     assert (alert_state);
 
+    zlist_t *actions = zlist_new ();
+    zlist_append(actions, "EMAIL");
+    zlist_append(actions, "SMS");
     zmsg_t *msg = fty_proto_encode_alert (
             NULL, // aux
             zclock_time() / 1000,
@@ -95,7 +98,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
             alert_state,
             "CRITICAL",
             "Device does not provide expected data. It may be offline or not correctly configured.",
-            "EMAIL/SMS");
+            actions);
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
         "CRITICAL",
@@ -105,6 +108,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     int rv = mlm_client_send (self->client, subject, &msg);
     if ( rv != 0 )
         zsys_error ("Cannot send alert on '%s' (mlm_client_send)", source_asset);
+    zlist_destroy(&actions);
     zstr_free (&subject);
 }
 
