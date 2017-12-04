@@ -73,7 +73,7 @@ fty-outage.txt: $(top_srcdir)/src/fty_outage.c
 	"$(srcdir)/mkman" "fty_outage" "$(builddir)/fty-outage.txt" "$(srcdir)/.."
 
 
-clean:
+clean-local:
 	rm -f *.1 *.3 *.7 $(GENERATED_DOCS)
 
 doc: $(GENERATED_DOCS)
