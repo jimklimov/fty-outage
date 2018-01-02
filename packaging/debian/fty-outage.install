@@ -1,5 +1,4 @@
 usr/bin/fty-outage
-usr/share/man/man1/fty-outage.1
 etc/fty-outage/fty-outage.cfg
 lib/systemd/system/fty-outage.service
 
