@@ -89,11 +89,12 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     zlist_t *actions = zlist_new ();
     zlist_append(actions, "EMAIL");
     zlist_append(actions, "SMS");
+    char * rule_name = zsys_sprintf ("%s@%s","outage",source_asset);
     zmsg_t *msg = fty_proto_encode_alert (
             NULL, // aux
             zclock_time() / 1000,
             self->timeout_ms * 3,
-            "outage", // rule_name
+            rule_name, // rule_name
             source_asset,
             alert_state,
             "CRITICAL",
@@ -110,6 +111,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
         zsys_error ("Cannot send alert on '%s' (mlm_client_send)", source_asset);
     zlist_destroy(&actions);
     zstr_free (&subject);
+    zstr_free (&rule_name);
 }
 
 // if for asset 'source-asset' the 'outage' alert is tracked
