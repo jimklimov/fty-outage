@@ -100,7 +100,6 @@ expiration_get (expiration_t *self)
 }
 
 struct _data_t {
-    bool verbose;
     zhashx_t *assets;           // asset_name => expiration time [s]
     uint64_t default_expiry_sec; // [s] default time for the asset, in what asset would be considered as not responding
 };
@@ -128,7 +127,6 @@ data_new (void)
     if (self) {
         self -> assets = zhashx_new();
         if ( self->assets ) {
-            self->verbose = false;
             self->default_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
             zhashx_set_destructor (self -> assets,  (zhashx_destructor_fn *) expiration_destroy);
         }
@@ -136,15 +134,6 @@ data_new (void)
             data_destroy (&self);
     }
     return self;
-}
-
-//  -----------------------------------------------------------------------
-//  Setup as verbose
-void
-data_set_verbose (data_t* self, bool verbose)
-{
-    assert (self);
-    self->verbose = verbose;
 }
 
 //  ------------------------------------------------------------------------
@@ -189,8 +178,7 @@ data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint
         return -1;
     else {
         expiration_update (e, timestamp);
-        if ( self->verbose )
-            zsys_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, expiration_get (e));
+        log_debug ("asset: INFO UPDATED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, expiration_get (e));
     }
     return 0;
 }
@@ -215,8 +203,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
     const char *operation = fty_proto_operation (proto);
     const char *asset_name = fty_proto_name (proto);
 
-    if (self->verbose)
-        zsys_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
+    log_debug ("Received asset: name=%s, operation=%s", asset_name, operation);
 
     // remove asset from cache
     const char* sub_type = fty_proto_aux_string (proto, FTY_PROTO_ASSET_SUBTYPE, "");
@@ -226,8 +213,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
     )
     {
         data_delete (self, asset_name);
-        if (self->verbose)
-            zsys_debug ("asset: DELETED name=%s, operation=%s", asset_name, operation);
+        log_debug ("asset: DELETED name=%s, operation=%s", asset_name, operation);
         fty_proto_destroy (proto_p);
     }
     else
@@ -247,8 +233,7 @@ data_put (data_t *self, fty_proto_t **proto_p)
             e = expiration_new (self->default_expiry_sec, proto_p);
             uint64_t now_sec = zclock_time() / 1000;
             expiration_update (e, now_sec);
-            if ( self->verbose )
-                zsys_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, expiration_get (e));
+            log_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", asset_name, e->last_time_seen_sec, e->ttl_sec, expiration_get (e));
             zhashx_insert (self->assets, asset_name, e);
         }
         else {
@@ -303,17 +288,13 @@ data_get_dead (data_t *self)
     zlistx_t *dead = zlistx_new();
 
     uint64_t now_sec = zclock_time() / 1000;
-    if ( self->verbose ) {
-        zsys_debug ("now=%" PRIu64 "s", now_sec);
-    }
+    log_debug ("now=%" PRIu64 "s", now_sec);
     for (expiration_t *e =  (expiration_t *) zhashx_first (self->assets);
         e != NULL;
 	    e = (expiration_t *) zhashx_next (self->assets))
     {
         void *asset_name = (void*) zhashx_cursor(self->assets);
-        if ( self->verbose ) {
-            zsys_debug ("asset: name=%s, ttl=%" PRIu64 ", expires_at=%" PRIu64, asset_name, e->ttl_sec, expiration_get (e));
-        }
+        log_debug ("asset: name=%s, ttl=%" PRIu64 ", expires_at=%" PRIu64, asset_name, e->ttl_sec, expiration_get (e));
         if ( expiration_get (e) <= now_sec)
         {
             assert(zlistx_add_start (dead, asset_name));
@@ -336,42 +317,42 @@ zhashx_get_expiration_test (data_t *self, char *source)
 // print content of zlistx
 void
 zlistx_print_dead (zlistx_t *self) {
-    zsys_debug ("zlistx_print_dead:");
+    log_debug ("zlistx_print_dead:");
     for (void *it = zlistx_first(self);
          it != NULL;
          it = zlistx_next(self))
     {
-        zsys_debug ("\t%s",(char *) it);
+        log_debug ("\t%s",(char *) it);
     }
 }
 
 void test0 (bool verbose)
 {
     if ( verbose )
-        zsys_info ("%s: data new/destroy test", __func__);
+        log_info ("%s: data new/destroy test", __func__);
     data_t *data = data_new();
     data_destroy (&data);
     if ( verbose )
-        zsys_info ("%s: OK", __func__);
+        log_info ("%s: OK", __func__);
 }
 
 void test2 (bool verbose)
 {
     if ( verbose )
-        zsys_info ("%s: expiration new/destroy test", __func__);
+        log_info ("%s: expiration new/destroy test", __func__);
 
     fty_proto_t *msg = fty_proto_new (FTY_PROTO_ASSET);
     expiration_t *e = expiration_new(10, &msg);
 
     expiration_destroy (&e);
     if ( verbose )
-        zsys_info ("%s: OK", __func__);
+        log_info ("%s: OK", __func__);
 }
 
 void test3 (bool verbose)
 {
     if ( verbose )
-        zsys_info ("%s: expiration update/update_ttl test", __func__);
+        log_info ("%s: expiration update/update_ttl test", __func__);
 
     fty_proto_t *msg = fty_proto_new (FTY_PROTO_ASSET);
     expiration_t *e = expiration_new (10, &msg);
@@ -396,7 +377,7 @@ void test3 (bool verbose)
     expiration_destroy (&e);
 
     if ( verbose )
-        zsys_info ("%s: OK", __func__);
+        log_info ("%s: OK", __func__);
 }
 
 //  --------------------------------------------------------------------------
@@ -405,6 +386,11 @@ void test3 (bool verbose)
 void
 data_test (bool verbose)
 {
+    ftylog_setInstance("data_test","");
+    if (verbose)
+    {
+        ftylog_setVeboseMode(ftylog_getInstance());
+    }
     printf (" * data: \n");
 
     test0 (verbose);
@@ -422,7 +408,6 @@ data_test (bool verbose)
 
     // key | expiration (t+2*ttl)
     data_t *data = data_new ();
-    data_set_verbose (data, verbose);
     assert(data);
 
     // get/set test
@@ -490,7 +475,7 @@ data_test (bool verbose)
     now_sec = zclock_time() / 1000;
     uint64_t diff = zhashx_get_expiration_test (data, "PDU1") - now_sec;
     if (verbose)
-        zsys_debug ("diff=%"PRIi64, diff);
+        log_debug ("diff=%"PRIi64, diff);
     assert ( diff <= (data_default_expiry (data) * 2));
     // TODO: test it more
 

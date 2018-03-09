@@ -46,6 +46,30 @@
         <use project = "malamute" />
     </use>
 
+<use project = "fty-common" libname = "libfty_common" header="fty-common/log/fty_log.h"
+        repository = "https://github.com/42ity/fty-common.git"
+        test = "fty_commmon_selftest" >
+        <use project = "log4cplus" header = "log4cplus/logger.h"
+        test = "appender_test" release="REL_1_1_2" repository="https://github.com/log4cplus/log4cplus.git" />
+
+        <use project = "cxxtools" test="cxxtools::Utf8Codec::Utf8Codec" header="cxxtools/allocator.h"
+            repository = "https://github.com/42ity/cxxtools.git"
+            release = "2.2-FTY-master"
+            />
+
+        <use project = "libtntnet" optional = "1"
+            repository = "https://github.com/42ity/tntnet.git"
+            release = "2.2-FTY-master"
+            />
+
+        <use project = "tntdb"
+            test="tntdb::Date::gmtime"
+            repository = "https://github.com/42ity/tntdb.git"
+            release = "1.3-FTY-master"
+            builddir = "tntdb" />
+    </use>
+
+
     <class name = "fty-outage-server">Bios outage server</class>
     <class name = "data" private = "1"> Data </class>
 
