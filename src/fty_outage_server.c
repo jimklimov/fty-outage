@@ -120,7 +120,7 @@ s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
     assert (source_asset);
 
     if (zhash_lookup (self->active_alerts, source_asset)) {
-        log_debug ("\t\tsend RESOLVED alert for source=%s", source_asset);
+        log_info ("\t\tsend RESOLVED alert for source=%s", source_asset);
         s_osrv_send_alert (self, source_asset, "RESOLVED");
         zhash_delete (self->active_alerts, source_asset);
     }
@@ -136,7 +136,7 @@ s_osrv_activate_alert (s_osrv_t* self, const char* source_asset)
     assert (source_asset);
 
     if ( !zhash_lookup (self->active_alerts, source_asset)) {
-        log_debug ("\t\tsend ACTIVE alert for source=%s", source_asset);
+        log_info ("\t\tsend ACTIVE alert for source=%s", source_asset);
         s_osrv_send_alert (self, source_asset, "ACTIVE");
         zhash_insert (self->active_alerts, source_asset, TRUE);
     }
@@ -256,7 +256,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
     }
     log_debug("Command : %s",command);
     if (streq(command, "$TERM")) {
-        log_info ("Got $TERM");
+        log_debug ("Got $TERM");
         zmsg_destroy (message_p);
         zstr_free (&command);
         return 1;
@@ -338,7 +338,7 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
             log_debug ("STATE-FILE: %s", state_file);
             int r = s_osrv_load (self);
             if (r != 0)
-                log_error ("outage_actor: failed to load state file %s: %m", self->state_file);
+                log_error ("failed to load state file %s: %m", self->state_file);
         }
         zstr_free(&state_file);
     }
@@ -363,7 +363,7 @@ fty_outage_server (zsock_t *pipe, void *args)
     assert (poller);
 
     zsock_signal (pipe, 0);
-    log_info ("agent_outage: Started");
+    log_info ("outage_actor: Started");
     //    poller timeout
     uint64_t now_ms = zclock_mono ();
     uint64_t last_dead_check_ms = now_ms;
@@ -375,7 +375,7 @@ fty_outage_server (zsock_t *pipe, void *args)
 
         if (which == NULL) {
             if (zpoller_terminated(poller) || zsys_interrupted) {
-                log_info ("Terminating.");
+                log_info ("outage_actor: Terminating.");
                 break;
             }
         }
@@ -386,7 +386,7 @@ fty_outage_server (zsock_t *pipe, void *args)
         if ((now_ms - last_save_ms) > SAVE_INTERVAL_MS) {
             int r = s_osrv_save (self);
             if (r != 0)
-                log_error ("outage_actor: failed to save state file %s: %m", self->state_file);
+                log_error ("failed to save state file %s", self->state_file);
             last_save_ms = now_ms;
         }
 
@@ -490,7 +490,7 @@ fty_outage_server (zsock_t *pipe, void *args)
     if (r != 0)
         log_error ("outage_actor: failed to save state file %s: %m", self->state_file);
     s_osrv_destroy (&self);
-    log_info ("agent_outage: Ended");
+    log_info ("outage_actor: Ended");
 }
 
 // --------------------------------------------------------------------------
