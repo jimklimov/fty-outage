@@ -28,8 +28,12 @@
 
 #include "fty_outage_classes.h"
 
+static const char *CONFIG = "/etc/fty-outage/fty-outage.cfg";
+
 int main (int argc, char *argv [])
 {
+    const char * logConfigFile = "";
+    ftylog_setInstance("fty-outage","");
     bool verbose = false;
     int argn;
     for (argn = 1; argn < argc; argn++) {
@@ -48,17 +52,27 @@ int main (int argc, char *argv [])
             printf ("Unknown option: %s\n", argv [argn]);
         }
     }
-    if (getenv ("BIOS_LOG_LEVEL") && streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG"))
-        verbose = true;
-
-    zactor_t *server = zactor_new (fty_outage_server, "outage");
-    //  Insert main code here
+    
+    zconfig_t *cfg = zconfig_load(CONFIG);
+    log_debug("Config is %s null",cfg ? "not": "");
+    if (cfg) {
+        logConfigFile = zconfig_get(cfg, "log/config", "");
+    }
+    //If a log config file is configured, try to load it
+    if (!streq(logConfigFile,""))
+    {
+      log_debug("Try to load clog configuration file : %s",logConfigFile);
+      ftylog_setConfigFile(ftylog_getInstance(),logConfigFile);
+    }
+    
     if (verbose)
     {
-        zstr_sendx (server, "VERBOSE", NULL);
-        zsys_info ("fty_agent_outage - Agent outage");
+        ftylog_setVeboseMode(ftylog_getInstance());
     }
-
+    
+    zactor_t *server = zactor_new (fty_outage_server, "outage");
+    //  Insert main code here
+    
     zstr_sendx (server, "STATE-FILE", "/var/lib/fty/fty-outage/state.zpl", NULL);
     zstr_sendx (server, "TIMEOUT", "30000", NULL);
     zstr_sendx (server, "CONNECT", "ipc://@/malamute", "fty-outage", NULL);
@@ -76,7 +90,7 @@ int main (int argc, char *argv [])
             zstr_free (&str);
         }
         else {
-            puts ("Interrupted ...");
+            log_info ("Interrupted ...");
             break;
         }
     }

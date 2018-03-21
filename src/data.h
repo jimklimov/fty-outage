@@ -69,10 +69,6 @@ FTY_OUTAGE_EXPORT zlistx_t *
 FTY_OUTAGE_EXPORT int
     data_touch_asset (data_t *self, const char *asset_name, uint64_t timestamp, uint64_t ttl, uint64_t now_sec);
 
-//  Setup as verbose
-FTY_OUTAGE_EXPORT void
-    data_set_verbose (data_t* self, bool verbose);
-
 //  Self test of this class
 FTY_OUTAGE_EXPORT void
     data_test (bool verbose);
