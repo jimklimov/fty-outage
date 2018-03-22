@@ -33,6 +33,7 @@ Build-Depends: debhelper (>= 9),
     libcxxtools-dev,
     libtntnet-dev,
     libtntdb-dev,
+    libsasl2-dev,
     libfty-common-dev,
     systemd,
     dh-systemd,
@@ -60,6 +61,7 @@ Depends:
     libcxxtools-dev,
     libtntnet-dev,
     libtntdb-dev,
+    libsasl2-dev,
     libfty-common-dev,
     libfty-outage1 (= ${binary:Version})
 Description: fty-outage development tools

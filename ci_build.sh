@@ -468,6 +468,16 @@ default|default-Werror|default-with-docs|valgrind|clang-format-check)
         cd "${BASE_PWD}"
     fi
 
+    # Start of recipe for dependency: libsasl2
+    if ! (command -v dpkg-query >/dev/null 2>&1 && dpkg-query --list libsasl2-dev >/dev/null 2>&1) || \
+           (command -v brew >/dev/null 2>&1 && brew ls --versions libsasl2 >/dev/null 2>&1) \
+    ; then
+        echo ""
+        echo "WARNING: Can not build prerequisite 'libsasl2'" >&2
+        echo "because neither tarball nor repository sources are known for it," >&2
+        echo "and it was not installed as a package; this may cause the test to fail!" >&2
+    fi
+
     # Start of recipe for dependency: fty-common
     if ! (command -v dpkg-query >/dev/null 2>&1 && dpkg-query --list libfty_common-dev >/dev/null 2>&1) || \
            (command -v brew >/dev/null 2>&1 && brew ls --versions fty-common >/dev/null 2>&1) \

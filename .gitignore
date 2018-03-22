@@ -86,6 +86,7 @@ libsodium/
 libtntnet/
 log4cplus/
 tntdb/
+libsasl2/
 
 # Travis build area
 tmp/
