@@ -49,7 +49,7 @@
         <use project = "malamute" />
     </use>
 
-    <use project = "fty-common" libname = "libfty_common" header="fty_common.h"
+<use project = "fty-common" libname = "libfty_common" header="fty-common/log/fty_log.h"
         repository = "https://github.com/42ity/fty-common.git"
         test = "fty_commmon_selftest" >
         <use project = "log4cplus" header = "log4cplus/logger.h"
