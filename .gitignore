@@ -32,10 +32,10 @@ src/fty_outage_selftest
 *.app
 core
 
- # Distcheck workspace and archives
-fty-outage-1.0.0/
-fty-outage-1.0.0.tar.gz
-fty-outage-1.0.0.zip
+# Distcheck workspace and archives
+fty-outage-*/
+fty-outage-*.tar.gz
+fty-outage-*.zip
 
 # Man pages
 doc/*.1
@@ -81,16 +81,16 @@ CMake*
 *.cmake
 
 # Repositories downloaded by CI integration scripts
+libsodium/
 libzmq/
 czmq/
 malamute/
 fty-proto/
-cxxtools/
-fty-common/
-libsodium/
-libtntnet/
 log4cplus/
+cxxtools/
+tntnet/
 tntdb/
+fty-common/
 libsasl2/
 
 # Travis build area
@@ -120,7 +120,7 @@ src/app/gen/
 src/app/obj/
 src/app/local.properties
 
-# Android -dependencies
+# Android - dependencies
 src/app/jni/output
 
 # Python build directory
@@ -141,6 +141,9 @@ bindings/qt/selftest/selftest
 *.swp
 *.bak
 .test*
+
+# Netbeans directory
+nbproject/
 
 # editor backups
 *~

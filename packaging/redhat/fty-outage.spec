@@ -1,21 +1,21 @@
 #
 #    fty-outage - Agent that sends alerts when device does not communicate
 #
-#    Copyright (C) 2014 - 2017 Eaton                                        
-#                                                                           
-#    This program is free software; you can redistribute it and/or modify   
-#    it under the terms of the GNU General Public License as published by   
-#    the Free Software Foundation; either version 2 of the License, or      
-#    (at your option) any later version.                                    
-#                                                                           
-#    This program is distributed in the hope that it will be useful,        
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of         
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
-#    GNU General Public License for more details.                           
-#                                                                           
+#    Copyright (C) 2014 - 2018 Eaton
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
 #    You should have received a copy of the GNU General Public License along
 #    with this program; if not, write to the Free Software Foundation, Inc.,
-#    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
+#    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
 # To build with draft APIs, use "--with drafts" in rpmbuild for local builds or add
@@ -57,7 +57,7 @@ BuildRequires:  malamute-devel
 BuildRequires:  fty-proto-devel
 BuildRequires:  log4cplus-devel
 BuildRequires:  cxxtools-devel
-BuildRequires:  libtntnet-devel
+BuildRequires:  tntnet-devel
 BuildRequires:  tntdb-devel
 BuildRequires:  cyrus-sasl-devel
 BuildRequires:  fty-common-devel
@@ -91,7 +91,7 @@ Requires:       malamute-devel
 Requires:       fty-proto-devel
 Requires:       log4cplus-devel
 Requires:       cxxtools-devel
-Requires:       libtntnet-devel
+Requires:       tntnet-devel
 Requires:       tntdb-devel
 Requires:       cyrus-sasl-devel
 Requires:       fty-common-devel
@@ -114,7 +114,7 @@ This package contains development files for fty-outage: agent that sends alerts 
 
 %build
 sh autogen.sh
-%{configure} --enable-drafts=%{DRAFTS} --with-systemd-units --with-libtntnet=yes
+%{configure} --enable-drafts=%{DRAFTS} --with-systemd-units --with-tntnet=yes
 make %{_smp_mflags}
 
 %install
