@@ -1,6 +1,9 @@
 # This is a skeleton created by zproject.
 # You can add hand-written code here.
+### Note: Customized after generation; take care upon regens
+
 save.xml
+
 # Object files
 *.o
 *.so
@@ -29,10 +32,10 @@ src/fty_outage_selftest
 *.app
 core
 
- # Distcheck workspace and archives
-fty-outage-1.0.0/
-fty-outage-1.0.0.tar.gz
-fty-outage-1.0.0.zip
+# Distcheck workspace and archives
+fty-outage-*/
+fty-outage-*.tar.gz
+fty-outage-*.zip
 
 # Man pages
 doc/*.1
@@ -71,21 +74,23 @@ compile_commands.json
 DartConfiguration.tcl
 install_manifest.txt
 Testing/
-CMakeList*
+
+# CMake in general
 builds/cmake/
+CMake*
 *.cmake
 
 # Repositories downloaded by CI integration scripts
+libsodium/
 libzmq/
 czmq/
 malamute/
 fty-proto/
-cxxtools/
-fty-common/
-libsodium/
-libtntnet/
 log4cplus/
+cxxtools/
+tntnet/
 tntdb/
+fty-common/
 libsasl2/
 
 # Travis build area
@@ -115,7 +120,7 @@ src/app/gen/
 src/app/obj/
 src/app/local.properties
 
-# Android -dependencies
+# Android - dependencies
 src/app/jni/output
 
 # Python build directory
@@ -136,6 +141,9 @@ bindings/qt/selftest/selftest
 *.swp
 *.bak
 .test*
+
+# Netbeans directory
+nbproject/
 
 # editor backups
 *~
