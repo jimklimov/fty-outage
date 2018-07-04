@@ -475,7 +475,7 @@ fty_outage_server (zsock_t *pipe, void *args)
             else
             if (fty_proto_id (bmsg) == FTY_PROTO_ASSET) {
                 if (    streq (fty_proto_operation (bmsg), FTY_PROTO_ASSET_OP_DELETE)
-                     || streq (fty_proto_aux_string (bmsg, FTY_PROTO_ASSET_STATUS, ""), "retired") )
+                     || !streq (fty_proto_aux_string (bmsg, FTY_PROTO_ASSET_STATUS, "active"), "active") )
                 {
                     const char* source = fty_proto_name (bmsg);
                     s_osrv_resolve_alert (self, source);
