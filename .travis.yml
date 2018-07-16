@@ -17,16 +17,14 @@ os:
 # in the default container with sudo==false, consider requiring a docker
 # image and/or a newer Ubuntu Trusty baseline VM, by uncommenting below.
 # See the current docs on http://travis-ci.org for up-to-date options.
-# NOTE: Here we need this for .travis.fix* script(s) below.
-#sudo: false
-sudo: required
+sudo: false
+#sudo: required
 
 #dist:
 #- trusty
 
-# Note: was uncommented in earlier builds (TODO: Check if needed)
-services:
-- docker
+#services:
+#- docker
 
 # Set CI_TIME=true to enable build-step profiling in Travis
 # Set CI_TRACE=true to enable shell script tracing in Travis
@@ -60,7 +58,6 @@ env:
 
 # Prerequisite packages provided by OS distro and used "as is"
 pkg_deps_prereqs_distro: &pkg_deps_prereqs_distro
-    - libsasl2-dev
 
 # Prerequisite packages that may be built from source or used from
 # prebuilt packages of that source (usually not from an OS distro)
@@ -71,10 +68,7 @@ pkg_deps_prereqs_source: &pkg_deps_prereqs_source
     - libmlm-dev
     - libfty-proto-dev
     - log4cplus-dev
-    - cxxtools-dev
-    - tntnet-dev
-    - tntdb-dev
-    - libfty-common-dev
+    - libfty-common-logging-dev
 
 # NOTE: Our forks are checked out and built without pkg dependencies in use
 pkg_deps_prereqs: &pkg_deps_prereqs
@@ -110,8 +104,6 @@ matrix:
   include:
   - env: BUILD_TYPE=default-with-docs
     os: linux
-# Note: was uncommented in earlier builds (TODO: Check if needed)
-#    services: docker
     addons:
       apt:
         sources: *pkg_src_zeromq_ubuntu14
@@ -121,8 +113,6 @@ matrix:
   - env: BUILD_TYPE=valgrind
     os: linux
     dist: trusty
-# Note: was commented in earlier builds (TODO: Check if needed)
-#    sudo: required
     addons:
       apt:
         sources: *pkg_src_zeromq_ubuntu14
@@ -158,10 +148,6 @@ matrix:
 before_install:
 - if [ "$TRAVIS_OS_NAME" == "osx" -a "$BUILD_TYPE" == "android" ] ; then brew install binutils ; fi
 - if [ "$TRAVIS_OS_NAME" == "osx" -a "$BUILD_TYPE" == "valgrind" ] ; then brew install valgrind ; fi
-
-### Note: Fix up SASL pkgconfig before build
-before_script:
-- ./.travis.fixsasl
 
 # Hand off to generated script for each BUILD_TYPE
 script: ./ci_build.sh
