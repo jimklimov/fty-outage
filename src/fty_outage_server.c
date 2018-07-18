@@ -501,6 +501,8 @@ fty_outage_server_test (bool verbose)
 {
     printf (" * fty_outage_server: \n");
     ftylog_setInstance("fty_outage_server_test","");
+    if (verbose)
+        ftylog_setVeboseMode(ftylog_getInstance());
     //     @selftest
     static const char *endpoint =  "inproc://malamute-test2";
 
