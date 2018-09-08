@@ -50,13 +50,13 @@ BuildRequires:  systemd-devel
 BuildRequires:  systemd
 %{?systemd_requires}
 BuildRequires:  xmlto
+BuildRequires:  log4cplus-devel
+BuildRequires:  fty-common-logging-devel
 BuildRequires:  libsodium-devel
 BuildRequires:  zeromq-devel
 BuildRequires:  czmq-devel
 BuildRequires:  malamute-devel
 BuildRequires:  fty-proto-devel
-BuildRequires:  log4cplus-devel
-BuildRequires:  fty-common-logging-devel
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -80,13 +80,13 @@ This package contains shared library for fty-outage: agent that sends alerts whe
 Summary:        agent that sends alerts when device does not communicate
 Group:          System/Libraries
 Requires:       libfty_outage1 = %{version}
+Requires:       log4cplus-devel
+Requires:       fty-common-logging-devel
 Requires:       libsodium-devel
 Requires:       zeromq-devel
 Requires:       czmq-devel
 Requires:       malamute-devel
 Requires:       fty-proto-devel
-Requires:       log4cplus-devel
-Requires:       fty-common-logging-devel
 
 %description devel
 agent that sends alerts when device does not communicate development tools

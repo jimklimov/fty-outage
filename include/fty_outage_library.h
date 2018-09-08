@@ -30,10 +30,10 @@
 //  Set up environment for the application
 
 //  External dependencies
+#include <fty_log.h>
 #include <czmq.h>
 #include <malamute.h>
 #include <ftyproto.h>
-#include <fty-log/fty_logger.h>
 
 //  FTY_OUTAGE version macros for compile-time API detection
 #define FTY_OUTAGE_VERSION_MAJOR 1

@@ -24,13 +24,13 @@ Maintainer:     fty-outage Developers <eatonipcopensource@eaton.com>
 Standards-Version: 4.0.1.0
 Build-Depends: debhelper (>= 9),
     pkg-config,
+    liblog4cplus-dev,
+    libfty-common-logging-dev,
     libsodium-dev,
     libzmq3-dev,
     libczmq-dev,
     libmlm-dev,
     libfty-proto-dev,
-    liblog4cplus-dev,
-    libfty-common-logging-dev,
     systemd,
     dh-systemd,
     asciidoc-base | asciidoc, xmlto,
@@ -48,13 +48,13 @@ Architecture: any
 Section: libdevel
 Depends:
     ${misc:Depends},
+    liblog4cplus-dev,
+    libfty-common-logging-dev,
     libsodium-dev,
     libzmq3-dev,
     libczmq-dev,
     libmlm-dev,
     libfty-proto-dev,
-    liblog4cplus-dev,
-    libfty-common-logging-dev,
     libfty-outage1 (= ${binary:Version})
 Description: fty-outage development tools
  This package contains development files for fty-outage:
