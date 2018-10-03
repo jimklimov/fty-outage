@@ -30,6 +30,7 @@ Build-Depends: debhelper (>= 9),
     libmlm-dev,
     liblog4cplus-dev,
     libfty-common-logging-dev,
+    libfty-common-dev,
     libfty-proto-dev,
     systemd,
     dh-systemd,
@@ -54,6 +55,7 @@ Depends:
     libmlm-dev,
     liblog4cplus-dev,
     libfty-common-logging-dev,
+    libfty-common-dev,
     libfty-proto-dev,
     libfty-outage1 (= ${binary:Version})
 Description: fty-outage development tools

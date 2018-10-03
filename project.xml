@@ -54,6 +54,11 @@
             />
     </use>
 
+    <use project = "fty-common" libname = "libfty_common" header="fty_common_macros.h"
+        repository = "https://github.com/42ity/fty-common.git"
+        test = "fty_commmon_selftest" >
+    </use>
+
     <use project = "fty-proto" libname = "libfty_proto" header="ftyproto.h" prefix="fty_proto"
         min_major = "1" min_minor = "0" min_patch = "0"
         repository = "https://github.com/42ity/fty-proto.git"

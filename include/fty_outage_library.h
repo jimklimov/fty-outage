@@ -33,6 +33,7 @@
 #include <czmq.h>
 #include <malamute.h>
 #include <fty_log.h>
+#include <fty_common_macros.h>
 #include <ftyproto.h>
 
 //  FTY_OUTAGE version macros for compile-time API detection
