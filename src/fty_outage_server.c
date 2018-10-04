@@ -29,6 +29,7 @@
 #define SAVE_INTERVAL_MS 45*60*1000 // store state each 45 minutes
 
 #include "fty_outage_classes.h"
+#include "fty_common_macros.h"
 
 static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
 
@@ -86,7 +87,8 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     zlist_t *actions = zlist_new ();
     zlist_append(actions, "EMAIL");
     zlist_append(actions, "SMS");
-    char * rule_name = zsys_sprintf ("%s@%s","outage",source_asset);
+    char *rule_name = zsys_sprintf ("%s@%s","outage",source_asset);
+    char *description = zsys_sprintf (TRANSLATE_ME("Device %s does not provide expected data. It may be offline or not correctly configured.", source_asset));
     zmsg_t *msg = fty_proto_encode_alert (
             NULL, // aux
             zclock_time() / 1000,
@@ -95,7 +97,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
             source_asset,
             alert_state,
             "CRITICAL",
-            "Device does not provide expected data. It may be offline or not correctly configured.",
+            description,
             actions);
     char *subject = zsys_sprintf ("%s/%s@%s",
         "outage",
@@ -108,6 +110,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     zlist_destroy(&actions);
     zstr_free (&subject);
     zstr_free (&rule_name);
+    zstr_free (&description);
 }
 
 // if for asset 'source-asset' the 'outage' alert is tracked
