@@ -130,6 +130,7 @@ data_new (void)
         self -> asset_enames = zhashx_new();
         if ( !self->asset_enames ) {
             data_destroy (&self);
+            return NULL;
         }
         self -> assets = zhashx_new();
         if ( self->assets ) {
