@@ -88,7 +88,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     zlist_append(actions, "EMAIL");
     zlist_append(actions, "SMS");
     char *rule_name = zsys_sprintf ("%s@%s","outage",source_asset);
-    char *description = zsys_sprintf (TRANSLATE_ME("Device %s does not provide expected data. It may be offline or not correctly configured.", source_asset));
+    char *description = zsys_sprintf (TRANSLATE_ME("Device %s does not provide expected data. It may be offline or not correctly configured.", data_get_asset_ename (self->assets, source_asset)));
     zmsg_t *msg = fty_proto_encode_alert (
             NULL, // aux
             zclock_time() / 1000,
@@ -477,7 +477,7 @@ fty_outage_server (zsock_t *pipe, void *args)
             }
             else
             if (fty_proto_id (bmsg) == FTY_PROTO_ASSET) {
-                if (    streq (fty_proto_operation (bmsg), FTY_PROTO_ASSET_OP_DELETE)
+                if (streq (fty_proto_operation (bmsg), FTY_PROTO_ASSET_OP_DELETE)
                      || !streq (fty_proto_aux_string (bmsg, FTY_PROTO_ASSET_STATUS, "active"), "active") )
                 {
                     const char* source = fty_proto_name (bmsg);
@@ -548,11 +548,15 @@ fty_outage_server_test (bool verbose)
     zclock_sleep (1000);
 
     // test case 01 to send the metric with short TTL
+    zhash_t *asset_ext = zhash_new ();
+    zhash_insert (asset_ext, "name", "ename_of_ups33");
     zhash_t *asset_aux = zhash_new ();
     zhash_insert (asset_aux, "type", "device");
     zhash_insert (asset_aux, "subtype", "ups");
-    zmsg_t *sendmsg = fty_proto_encode_asset (asset_aux, "UPS33", "create", NULL);
+    zmsg_t *sendmsg = fty_proto_encode_asset (asset_aux, "UPS33", "create", asset_ext);
     zhash_destroy (&asset_aux);
+    zhash_destroy (&asset_ext);
+
     rv = mlm_client_send (a_sender, "subject",  &sendmsg);
 
     // expected: ACTIVE alert to be sent

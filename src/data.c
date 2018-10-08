@@ -101,6 +101,7 @@ expiration_get (expiration_t *self)
 
 struct _data_t {
     zhashx_t *assets;           // asset_name => expiration time [s]
+    zhashx_t *asset_enames;      // asset iname => asset ename (unicode name)
     uint64_t default_expiry_sec; // [s] default time for the asset, in what asset would be considered as not responding
 };
 
@@ -113,6 +114,7 @@ data_destroy (data_t **self_p)
     if (*self_p) {
         data_t *self = *self_p;
         zhashx_destroy(&self -> assets);
+        zhashx_destroy(&self -> asset_enames);
         free (self);
         *self_p = NULL;
     }
@@ -125,6 +127,10 @@ data_new (void)
 {
     data_t *self = (data_t *) zmalloc (sizeof (data_t));
     if (self) {
+        self -> asset_enames = zhashx_new();
+        if ( !self->asset_enames ) {
+            data_destroy (&self);
+        }
         self -> assets = zhashx_new();
         if ( self->assets ) {
             self->default_expiry_sec = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
@@ -132,8 +138,16 @@ data_new (void)
         }
         else
             data_destroy (&self);
+
     }
     return self;
+}
+
+const char*
+data_get_asset_ename (data_t *self, const char *asset_name)
+{
+    return (const char*) zhashx_lookup (self->asset_enames, asset_name);
+
 }
 
 //  ------------------------------------------------------------------------
@@ -227,6 +241,8 @@ data_put (data_t *self, fty_proto_t **proto_p)
             )
        )
     {
+        zhashx_insert (self->asset_enames, asset_name, (void*) fty_proto_ext_string (proto, "name", ""));
+
         // this asset is not known yet -> add it to the cache
         expiration_t *e = (expiration_t *) zhashx_lookup (self->assets, asset_name );
         if ( e == NULL ) {
@@ -463,11 +479,13 @@ data_test (bool verbose)
 
     // test asset message
     zhash_destroy (&aux);
+    zhash_t *ext = zhash_new ();
+    zhash_insert (ext, "name", "ename_of_pdu1");
     aux = zhash_new ();
     zhash_insert (aux, "status", "active");
     zhash_insert (aux, "type", "device");
     zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, "epdu");
-    zmsg_t *msg = fty_proto_encode_asset (aux, "PDU1", FTY_PROTO_ASSET_OP_CREATE, NULL);
+    zmsg_t *msg = fty_proto_encode_asset (aux, "PDU1", FTY_PROTO_ASSET_OP_CREATE, ext);
     fty_proto_t* bmsg = fty_proto_decode (&msg);
     data_put (data, &bmsg);
 
@@ -479,9 +497,12 @@ data_test (bool verbose)
     assert ( diff <= (data_default_expiry (data) * 2));
     // TODO: test it more
 
+    assert (streq (data_get_asset_ename (data, "PDU1"),"ename_of_pdu1"));
+
     zlistx_destroy(&list);
     fty_proto_destroy(&proto_n);
     zhash_destroy(&aux);
+    zhash_destroy(&ext);
     data_destroy (&data);
 
     //  @end
