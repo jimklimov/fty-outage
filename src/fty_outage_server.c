@@ -88,7 +88,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     zlist_append(actions, "EMAIL");
     zlist_append(actions, "SMS");
     char *rule_name = zsys_sprintf ("%s@%s","outage",source_asset);
-    char *description = zsys_sprintf (TRANSLATE_ME("Device %s does not provide expected data. It may be offline or not correctly configured.", data_get_asset_ename (self->assets, source_asset)));
+    char *description = TRANSLATE_ME("Device %s does not provide expected data. It may be offline or not correctly configured.", data_get_asset_ename (self->assets, source_asset));
     zmsg_t *msg = fty_proto_encode_alert (
             NULL, // aux
             zclock_time() / 1000,
