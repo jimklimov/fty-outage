@@ -75,7 +75,10 @@
             />
     </use>
 
-    <use project = "fty-common" libname = "libfty_common" header = "fty_common_macros.h"
+    <!-- Note: Unlike other components that want "fty_common.h", this
+         one includes "fty_common_macros.h" as top-level instead -->
+    <use project = "fty-common" libname = "libfty_common"
+        header = "fty_common_macros.h"
         repository = "https://github.com/42ity/fty-common.git"
         release = "master"
         test = "fty_common_selftest" >
