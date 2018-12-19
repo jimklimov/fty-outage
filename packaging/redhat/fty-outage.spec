@@ -50,6 +50,7 @@ BuildRequires:  systemd-devel
 BuildRequires:  systemd
 %{?systemd_requires}
 BuildRequires:  xmlto
+BuildRequires:  gcc-c++
 BuildRequires:  libsodium-devel
 BuildRequires:  zeromq-devel
 BuildRequires:  czmq-devel
@@ -58,6 +59,7 @@ BuildRequires:  log4cplus-devel
 BuildRequires:  fty-common-logging-devel
 BuildRequires:  fty-common-devel
 BuildRequires:  fty-proto-devel
+BuildRequires:  fty_shm-devel
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -89,6 +91,7 @@ Requires:       log4cplus-devel
 Requires:       fty-common-logging-devel
 Requires:       fty-common-devel
 Requires:       fty-proto-devel
+Requires:       fty_shm-devel
 
 %description devel
 agent that sends alerts when device does not communicate development tools

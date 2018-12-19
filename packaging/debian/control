@@ -32,6 +32,7 @@ Build-Depends: debhelper (>= 9),
     libfty-common-logging-dev,
     libfty-common-dev,
     libfty-proto-dev,
+    libfty-shm-dev,
     systemd,
     dh-systemd,
     asciidoc-base | asciidoc, xmlto,
@@ -57,6 +58,7 @@ Depends:
     libfty-common-logging-dev,
     libfty-common-dev,
     libfty-proto-dev,
+    libfty-shm-dev,
     libfty-outage1 (= ${binary:Version})
 Description: fty-outage development tools
  This package contains development files for fty-outage:
