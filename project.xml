@@ -78,7 +78,7 @@
     <!-- Note: Unlike other components that want "fty_common.h", this
          one includes "fty_common_macros.h" as top-level instead -->
     <use project = "fty-common" libname = "libfty_common"
-        header = "fty_common_macros.h"
+        header = "fty_common.h"
         repository = "https://github.com/42ity/fty-common.git"
         release = "master"
         test = "fty_common_selftest" >
@@ -134,6 +134,9 @@
                 />
         </use>
     </use>
+
+    <use project = "fty_shm" libname = "libfty_shm" header="fty_shm.h" min_major = "1" test = "fty_shm_test" 
+        repository = "https://github.com/42ity/fty-shm.git"/>
 
     <class name = "fty-outage-server">Bios outage server</class>
     <class name = "data" private = "1"> Data </class>

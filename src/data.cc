@@ -281,18 +281,18 @@ char*
 convert_port (const char *old_port)
 {
     if (streq (old_port, "9"))
-        return "TH1";
+        return (char*)"TH1";
     else
     if(streq (old_port, "10"))
-        return "TH2";
+        return (char*)"TH2";
     else
     if(streq (old_port, "11"))
-        return "TH3";
+        return (char*)"TH3";
     else
     if(streq (old_port, "12"))
-        return "TH4";
+        return (char*)"TH4";
     else
-        return "";
+        return (char*)"";
 }
 
 // --------------------------------------------------------------------------
@@ -419,9 +419,9 @@ data_test (bool verbose)
     //  aux data for metric - var_name | msg issued
     zhash_t *aux = zhash_new();
 
-    zhash_update(aux,"key1", "val1");
-    zhash_update(aux,"time" , "2");
-    zhash_update(aux,"key2" , "val2");
+    zhash_update(aux,"key1", (void*)"val1");
+    zhash_update(aux,"time" , (void*)"2");
+    zhash_update(aux,"key2" , (void*)"val2");
 
     // key | expiration (t+2*ttl)
     data_t *data = data_new ();
@@ -435,16 +435,16 @@ data_test (bool verbose)
 
     // create asset first
     zhash_t *asset_aux = zhash_new ();
-    zhash_insert (asset_aux, "type", "device");
-    zhash_insert (asset_aux, "subtype", "ups");
+    zhash_insert (asset_aux, "type", (void*)"device");
+    zhash_insert (asset_aux, "subtype", (void*)"ups");
     zmsg_t *asset = fty_proto_encode_asset (asset_aux, "UPS4", "create", NULL);
     fty_proto_t *proto_n = fty_proto_decode (&asset);
     data_put(data, &proto_n);
     zhash_destroy (&asset_aux);
 
     asset_aux = zhash_new ();
-    zhash_insert (asset_aux, "type", "device");
-    zhash_insert (asset_aux, "subtype", "ups");
+    zhash_insert (asset_aux, "type", (void*)"device");
+    zhash_insert (asset_aux, "subtype", (void*)"ups");
     asset = fty_proto_encode_asset (asset_aux, "UPS3", "create", NULL);
     proto_n = fty_proto_decode (&asset);
     data_put(data, &proto_n);
@@ -481,20 +481,20 @@ data_test (bool verbose)
     // test asset message
     zhash_destroy (&aux);
     zhash_t *ext = zhash_new ();
-    zhash_insert (ext, "name", "ename_of_pdu1");
+    zhash_insert (ext, "name", (void*)"ename_of_pdu1");
     aux = zhash_new ();
-    zhash_insert (aux, "status", "active");
-    zhash_insert (aux, "type", "device");
-    zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, "epdu");
+    zhash_insert (aux, "status", (void*)"active");
+    zhash_insert (aux, "type", (void*)"device");
+    zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, (void*)"epdu");
     zmsg_t *msg = fty_proto_encode_asset (aux, "PDU1", FTY_PROTO_ASSET_OP_CREATE, ext);
     fty_proto_t* bmsg = fty_proto_decode (&msg);
     data_put (data, &bmsg);
 
     assert (zhashx_lookup (data->assets, "PDU1"));
     now_sec = zclock_time() / 1000;
-    uint64_t diff = zhashx_get_expiration_test (data, "PDU1") - now_sec;
+    uint64_t diff = zhashx_get_expiration_test (data, (char*)"PDU1") - now_sec;
     if (verbose)
-        log_debug ("diff=%"PRIi64, diff);
+        log_debug ("diff=%" PRIi64, diff);
     assert ( diff <= (data_default_expiry (data) * 2));
     // TODO: test it more
 

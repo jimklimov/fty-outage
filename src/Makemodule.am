@@ -13,21 +13,22 @@ lib_LTLIBRARIES += src/libfty_outage.la
 pkgconfig_DATA = src/libfty_outage.pc
 
 src_libfty_outage_la_SOURCES = \
-    src/data.c \
+    src/data.cc \
     src/platform.h
 
 if ENABLE_DRAFTS
 src_libfty_outage_la_SOURCES += \
-    src/fty_outage_server.c
+    src/fty_outage_server.cc
 
 endif
 
 if ENABLE_DRAFTS
 src_libfty_outage_la_SOURCES += \
-    src/fty_outage_private_selftest.c
+    src/fty_outage_private_selftest.cc
 endif
 
 src_libfty_outage_la_CPPFLAGS = ${AM_CPPFLAGS}
+src_libfty_outage_la_CXXFLAGS = ${AM_CXXFLAGS}
 
 src_libfty_outage_la_LDFLAGS = \
     -version-info @LTVER@ \
@@ -55,7 +56,7 @@ if ENABLE_FTY_OUTAGE
 bin_PROGRAMS += src/fty-outage
 src_fty_outage_CPPFLAGS = ${AM_CPPFLAGS}
 src_fty_outage_LDADD = ${program_libs}
-src_fty_outage_SOURCES = src/fty_outage.c
+src_fty_outage_SOURCES = src/fty_outage.cc
 src_fty_outage_config_DATA =
 src_fty_outage_config_DATA += src/fty-outage.cfg
 src_fty_outage_configdir = $(sysconfdir)/fty-outage
@@ -69,7 +70,7 @@ check_PROGRAMS += src/fty_outage_selftest
 noinst_PROGRAMS += src/fty_outage_selftest
 src_fty_outage_selftest_CPPFLAGS = ${AM_CPPFLAGS}
 src_fty_outage_selftest_LDADD = ${program_libs}
-src_fty_outage_selftest_SOURCES = src/fty_outage_selftest.c
+src_fty_outage_selftest_SOURCES = src/fty_outage_selftest.cc
 endif #ENABLE_FTY_OUTAGE_SELFTEST
 
 # define custom target for all products of /src
@@ -207,7 +208,7 @@ coverage: src/fty_outage_selftest $(top_builddir)/$(SELFTEST_DIR_RW) $(top_build
 	$(MAKE) check
 	lcov --base-directory . --directory . --capture -o coverage.info
 	lcov --remove coverage.info "/usr*" -o coverage.info
-	lcov --remove coverage.info "fty_outage_selftest.c" -o coverage.info
+	lcov --remove coverage.info "fty_outage_selftest.cc" -o coverage.info
 	$(RM) -rf coverage/*
 	genhtml -o coverage/ -t "fty-outage test coverage" --num-spaces 4 coverage.info
 else
@@ -329,7 +330,7 @@ endif
 
 cppcheck.xml:
 	@echo "Performing cppcheck static analysis..."
-	cppcheck --enable=all --inconclusive --xml --xml-version=2 . 2>"$@"
+	cppcheck --std=c++11 --enable=all --inconclusive --xml --xml-version=2 . 2>"$@"
 	@echo "The cppcheck static analysis is done"
 
 # Note: this recipe tests that the Git-based workspace reports no changed

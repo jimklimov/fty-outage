@@ -70,14 +70,14 @@ int main (int argc, char *argv [])
         ftylog_setVeboseMode(ftylog_getInstance());
     }
     
-    zactor_t *server = zactor_new (fty_outage_server, "outage");
+    zactor_t *server = zactor_new (fty_outage_server, (void *) "outage");
     //  Insert main code here
     
     zstr_sendx (server, "STATE-FILE", "/var/lib/fty/fty-outage/state.zpl", NULL);
     zstr_sendx (server, "TIMEOUT", "30000", NULL);
     zstr_sendx (server, "CONNECT", "ipc://@/malamute", "fty-outage", NULL);
     zstr_sendx (server, "PRODUCER", FTY_PROTO_STREAM_ALERTS_SYS, NULL);
-    zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS, ".*", NULL);
+    //zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS, ".*", NULL);
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS_UNAVAILABLE, ".*", NULL);
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS_SENSOR, ".*", NULL);
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
