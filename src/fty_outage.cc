@@ -33,6 +33,7 @@ static const char *CONFIG = "/etc/fty-outage/fty-outage.cfg";
 int main (int argc, char *argv [])
 {
     const char * logConfigFile = "";
+    const char * maintenance_expiration = "";
     ftylog_setInstance("fty-outage","");
     bool verbose = false;
     int argn;
@@ -57,19 +58,23 @@ int main (int argc, char *argv [])
     log_debug("Config is %s null",cfg ? "not": "");
     if (cfg) {
         logConfigFile = zconfig_get(cfg, "log/config", "");
+
+        // Get maintenance mode TTL
+        maintenance_expiration = zconfig_get(cfg, "server/maintenance_expiration", DEFAULT_MAINTENANCE_EXPIRATION);
     }
     //If a log config file is configured, try to load it
-    if (!streq(logConfigFile,""))
+    if (!streq(logConfigFile, ""))
     {
-      log_debug("Try to load clog configuration file : %s",logConfigFile);
-      ftylog_setConfigFile(ftylog_getInstance(),logConfigFile);
+      log_debug("Try to load log configuration file : %s", logConfigFile);
+      ftylog_setConfigFile(ftylog_getInstance(), logConfigFile);
     }
     
     if (verbose)
     {
         ftylog_setVeboseMode(ftylog_getInstance());
     }
-    
+
+    // FIXME: use agent name from fty-common
     zactor_t *server = zactor_new (fty_outage_server, (void *) "outage");
     //  Insert main code here
     
@@ -81,6 +86,9 @@ int main (int argc, char *argv [])
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS_UNAVAILABLE, ".*", NULL);
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_METRICS_SENSOR, ".*", NULL);
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
+    if (verbose)
+        zstr_send (server, "VERBOSE");
+    zstr_sendx (server, "DEFAULT_MAINTENANCE_EXPIRATION", maintenance_expiration, NULL);
 
     // src/malamute.c, under MPL license
     while (true) {

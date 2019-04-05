@@ -24,9 +24,20 @@
 
 #include "../include/fty_outage.h"
 
+// it is used as TTL, but in formula we are waiting for ttl*2 ->
+// so if we here would have 15 minutes-> the first alert will come in 30 minutes
+#define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60/2
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+//  Structure of our class
+struct _data_t {
+    zhashx_t *assets;            // asset_name => expiration time [s]
+    zhashx_t *asset_enames;      // asset iname => asset ename (unicode name)
+    uint64_t default_expiry_sec; // [s] default time for the asset, in what asset would be considered as not responding
+};
 
 #ifndef DATA_T_DEFINED
 typedef struct _data_t data_t;
@@ -76,6 +87,33 @@ FTY_OUTAGE_EXPORT int
 //  Self test of this class
 FTY_OUTAGE_EXPORT void
     data_test (bool verbose);
+
+//  Structure of our class
+typedef struct _expiration_t {
+    uint64_t ttl_sec;                      // [s] minimal ttl seen for some asset
+    uint64_t last_time_seen_sec;           // [s] time when  some metrics were seen for this asset
+    fty_proto_t *msg;                      // asset representation
+} expiration_t;
+
+//  Create a new expiration
+FTY_OUTAGE_EXPORT expiration_t*
+expiration_new (uint64_t default_expiry_sec, fty_proto_t **msg_p);
+
+//  Destroy the expiration
+FTY_OUTAGE_EXPORT void
+expiration_destroy (expiration_t **self_p);
+
+//  Update the expiration
+FTY_OUTAGE_EXPORT void
+expiration_update (expiration_t *self, uint64_t new_time_seen_sec);
+
+//  Update the expiration TTL
+FTY_OUTAGE_EXPORT void
+expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl);
+
+//  Get the expiration TTL
+FTY_OUTAGE_EXPORT uint64_t
+expiration_get (expiration_t *self);
 
 //  @end
 
