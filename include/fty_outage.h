@@ -26,5 +26,10 @@
 #include "fty_outage_library.h"
 
 //  Add your own public definitions here, if you need them
+// Default TTL of assets in maintenance mode
+#define DEFAULT_MAINTENANCE_EXPIRATION  "3600"
+
+#define DISABLE_MAINTENANCE 0
+#define ENABLE_MAINTENANCE  1
 
 #endif

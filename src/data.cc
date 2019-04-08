@@ -28,18 +28,7 @@
 
 #include "fty_outage_classes.h"
 
-// it is used as TTL, but in formula we are waiting for ttl*2 ->
-// so if we here would have 15 minutes-> the first alert will come in 30 minutes
-#define DEFAULT_ASSET_EXPIRATION_TIME_SEC 15*60/2
-
-//  Structure of our class
-typedef struct _expiration_t {
-    uint64_t ttl_sec;                      // [s] minimal ttl seen for some asset
-    uint64_t last_time_seen_sec;           // [s] time when  some metrics were seen for this asset
-    fty_proto_t *msg;                      // asset represetation
-} expiration_t;
-
-static expiration_t*
+expiration_t*
 expiration_new (uint64_t default_expiry_sec, fty_proto_t **msg_p)
 {
     assert (msg_p);
@@ -52,7 +41,7 @@ expiration_new (uint64_t default_expiry_sec, fty_proto_t **msg_p)
     return self;
 }
 
-static void
+void
 expiration_destroy (expiration_t **self_p)
 {
     assert (self_p);
@@ -66,7 +55,7 @@ expiration_destroy (expiration_t **self_p)
 
 // set up new expected expiration time, given last seen time
 // this function can only prolong exiration_time
-static void
+void
 expiration_update (expiration_t *self, uint64_t new_time_seen_sec)
 {
     assert (self);
@@ -79,7 +68,7 @@ expiration_update (expiration_t *self, uint64_t new_time_seen_sec)
         self->last_time_seen_sec = new_time_seen_sec;
 }
 
-static void
+void
 expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
 {
     assert (self);
@@ -92,18 +81,12 @@ expiration_update_ttl (expiration_t *self, uint64_t proposed_ttl)
     }
 }
 
-static uint64_t
+uint64_t
 expiration_get (expiration_t *self)
 {
     assert (self);
     return self->last_time_seen_sec + self->ttl_sec * 2;
 }
-
-struct _data_t {
-    zhashx_t *assets;           // asset_name => expiration time [s]
-    zhashx_t *asset_enames;      // asset iname => asset ename (unicode name)
-    uint64_t default_expiry_sec; // [s] default time for the asset, in what asset would be considered as not responding
-};
 
 //  --------------------------------------------------------------------------
 //  Destroy the data
@@ -308,7 +291,7 @@ data_get_dead (data_t *self)
     log_debug ("now=%" PRIu64 "s", now_sec);
     for (expiration_t *e =  (expiration_t *) zhashx_first (self->assets);
         e != NULL;
-	    e = (expiration_t *) zhashx_next (self->assets))
+        e = (expiration_t *) zhashx_next (self->assets))
     {
         void *asset_name = (void*) zhashx_cursor(self->assets);
         log_debug ("asset: name=%s, ttl=%" PRIu64 ", expires_at=%" PRIu64, asset_name, e->ttl_sec, expiration_get (e));

@@ -29,6 +29,7 @@
 #define SAVE_INTERVAL_MS 45*60*1000 // store state each 45 minutes
 
 #include "fty_outage_classes.h"
+#include "data.h"
 #include "fty_common_macros.h"
 
 static void *TRUE = (void*) "true";   // hack to allow us to pretend zhash is set
@@ -39,6 +40,8 @@ typedef struct _s_osrv_t {
     data_t *assets;
     zhash_t *active_alerts;
     char *state_file;
+    uint64_t default_maintenance_expiration;
+    bool verbose;
 } s_osrv_t;
 
 static void
@@ -69,9 +72,11 @@ s_osrv_new ()
         if (self->active_alerts) {
             self->timeout_ms = TIMEOUT_MS;
             self->state_file = NULL;
+            self->default_maintenance_expiration = 0;
         } else {
             s_osrv_destroy (&self);
         }
+        self->verbose = false;
     }
     return self;
 }
@@ -85,6 +90,7 @@ s_osrv_send_alert (s_osrv_t* self, const char* source_asset, const char* alert_s
     assert (alert_state);
 
     zlist_t *actions = zlist_new ();
+    // FIXME: should be a configurable Settings->Alert!!!
     zlist_append(actions, (void *) "EMAIL");
     zlist_append(actions, (void *) "SMS");
     char *rule_name = zsys_sprintf ("%s@%s","outage",source_asset);
@@ -126,6 +132,66 @@ s_osrv_resolve_alert (s_osrv_t* self, const char* source_asset)
         s_osrv_send_alert (self, source_asset, "RESOLVED");
         zhash_delete (self->active_alerts, source_asset);
     }
+}
+
+// switch asset 'source-asset' to maintenance mode
+// this implies putting a long TTL, so that no 'outage' alert is generated
+// return -1, if operation failed
+// return 0 otherwise
+static int
+s_osrv_maintenance_mode (s_osrv_t* self, const char* source_asset, int mode, int expiration_ttl)
+{
+    int rv = -1;
+
+    assert (self);
+    assert (source_asset);
+
+    uint64_t now_sec = zclock_time() / 1000;
+
+    if (zhashx_lookup (self->assets->assets, source_asset)) {
+
+        // The asset is already known
+        // so resolve the existing alert if mode == ENABLE_MAINTENANCE
+        log_debug ("outage: maintenance mode: asset '%s' found, so updating it and resolving current alert", source_asset);
+
+        if (mode == ENABLE_MAINTENANCE)
+            s_osrv_resolve_alert (self, source_asset);
+
+        // Note: when mode == DISABLE_MAINTENANCE, restore the default expiration
+        rv = data_touch_asset (self->assets, source_asset, now_sec,
+                               (mode==ENABLE_MAINTENANCE)?expiration_ttl:self->assets->default_expiry_sec,
+                               now_sec);
+        if ( rv == -1 ) {
+            // FIXME: use agent name from fty-common
+            log_error ("outage: failed to %sable maintenance mode for asset '%s'",
+                       (mode==ENABLE_MAINTENANCE)?"en":"dis", source_asset);
+        }
+        else
+            log_info ("outage: maintenance mode %sabled for asset '%s'",
+                       (mode==ENABLE_MAINTENANCE)?"en":"dis", source_asset);
+    }
+    else {
+        log_debug ("outage: maintenance mode: asset '%s' not found, so creating it", source_asset);
+
+        // The asset is already known, so add it to the tracking list
+        // theoretically, this is only needed when generating the outage alert
+        // so not applicable here!
+        // zhashx_insert (self->assets->asset_enames, asset_name, (void*) fty_proto_ext_string (proto, "name", ""));
+
+        expiration_t *e = (expiration_t *) zhashx_lookup (self->assets->assets, source_asset);
+        if ( e == NULL ) {
+            // FIXME: check if the 2nd param is really needed, seems not used!
+            fty_proto_t *msg = fty_proto_new (FTY_PROTO_ASSET);
+            e = expiration_new ((mode==ENABLE_MAINTENANCE)?expiration_ttl:self->assets->default_expiry_sec, &msg);
+            expiration_update (e, now_sec);
+            log_debug ("asset: ADDED name='%s', last_seen=%" PRIu64 "[s], ttl= %" PRIu64 "[s], expires_at=%" PRIu64 "[s]", source_asset, e->last_time_seen_sec, e->ttl_sec, expiration_get (e));
+            zhashx_insert (self->assets->assets, source_asset, e);
+            rv = 0;
+        }
+    }
+    log_info ("outage: maintenance mode %sabled for asset '%s' with TTL %i",
+               (mode==ENABLE_MAINTENANCE)?"en":"dis", source_asset, expiration_ttl);
+    return rv;
 }
 
 // if for asset 'source-asset' the 'outage' alert is NOT tracked
@@ -344,6 +410,21 @@ s_osrv_actor_commands (s_osrv_t* self, zmsg_t **message_p)
         }
         zstr_free(&state_file);
     }
+    else
+    if (streq (command, "VERBOSE"))
+    {
+        self->verbose = true;
+    }
+    else
+    if (streq (command, "DEFAULT_MAINTENANCE_EXPIRATION"))
+    {
+        char *maintenance_expiration = zmsg_popstr(message);
+        if (maintenance_expiration) {
+            self->default_maintenance_expiration = atoi (maintenance_expiration);
+            log_debug ("DEFAULT_MAINTENANCE_EXPIRATION: %s", maintenance_expiration);
+        }
+        zstr_free(&maintenance_expiration);
+    }
     else {
         log_error ("Unknown actor command: %s.\n", command);
     }
@@ -367,7 +448,7 @@ metric_processing (fty::shm::shmMetrics& metrics, void* args) {
 
         if (port != NULL ) {
             // is it from sensor? yes
-            // get sensors attached to the 'asset' on the 'port'! we can have more then 1!
+            // get sensors attached to the 'asset' on the 'port'! we can have more than 1!
             const char *source = fty_proto_aux_string (element, FTY_PROTO_METRICS_SENSOR_AUX_SNAME, NULL);
             if (NULL == source) {
                 log_error("Sensor message malformed: found %s='%s' but %s is missing", FTY_PROTO_METRICS_SENSOR_AUX_PORT,
@@ -436,6 +517,145 @@ outage_metric_polling (zsock_t *pipe, void *args)
   zpoller_destroy(&poller);
 }
 
+
+//  --------------------------------------------------------------------------
+//  Handle mailbox messages
+
+static void
+fty_outage_handle_mailbox (s_osrv_t *self, zmsg_t **msg)
+{
+    if (self->verbose)
+        zmsg_print (*msg);
+    if (msg && *msg) {
+        char *message_type = zmsg_popstr(*msg);
+        if (!message_type) {
+            log_warning("Expected message of type REQUEST");
+            return;
+        }
+        char *zuuid = zmsg_popstr (*msg);
+        if (!zuuid) {
+            log_warning("Expected zuuid");
+            zstr_free (&message_type);
+            return;
+        }
+        char *command = zmsg_popstr (*msg);
+        char *sender = strdup (mlm_client_sender (self->client));
+        char *subject = strdup (mlm_client_subject (self->client));
+
+        // message model always enforce reply
+        zmsg_t *reply = zmsg_new ();
+        zmsg_addstr (reply, zuuid);
+        zmsg_addstr (reply, "REPLY");
+
+        if (streq (message_type, "REQUEST")) {
+            if (!command) {
+                log_warning("Expected command");
+                zstr_free (&zuuid);
+                zstr_free (&message_type);
+                zmsg_addstr (reply, "ERROR");
+                zmsg_addstr (reply, "Missing command");
+            }
+            else if (streq (command, "MAINTENANCE_MODE")) {
+                // * REQUEST/'msg-correlation-id'/MAINTENANCE_MODE/<mode>/asset1/.../assetN/expiration - switch 'asset1' to 'assetN' into maintenance
+                // ex: bmsg request fty-outage GET REQUEST 1234 MAINTENANCE_MODE enable ups-9 3600
+
+                // look for expiration_ttl
+                int expiration_ttl = self->default_maintenance_expiration;
+                zframe_t *last_frame = zmsg_last (*msg);
+                char *last_str = NULL;
+                if (last_frame) {
+                    last_str = zframe_strdup (last_frame);
+                    log_debug("last_str: %s", last_str);
+                    // '-' means that it's asset name, otherwise the expiration TTL
+                    if (strchr(last_str, '-') == NULL)
+                        expiration_ttl = atoi(last_str);
+                    zstr_free(&last_str);
+                }
+
+                // look for mode 'enable' or 'disable'
+                char *mode_str = zmsg_popstr (*msg);
+                int mode = ENABLE_MAINTENANCE;
+
+                if (mode_str) {
+
+                    log_debug("Maintenance mode: %s", mode_str);
+
+                    if ( (streq (mode_str, "disable")) || (streq (mode_str, "enable")) ) {
+                        if (streq (mode_str, "disable")) {
+                            mode = DISABLE_MAINTENANCE;
+                            // also restore default TTL
+                            expiration_ttl = DEFAULT_ASSET_EXPIRATION_TIME_SEC;
+                        }
+                        // loop on assets...
+                        int rv = -1;
+                        char *maint_asset = zmsg_popstr(*msg);
+                        while (maint_asset) {
+                            // trim potential ttl (last frame)
+                            if (strchr(maint_asset, '-') != NULL)
+                                rv = s_osrv_maintenance_mode (self, maint_asset, mode, expiration_ttl);
+
+                            zstr_free(&maint_asset);
+                            maint_asset = zmsg_popstr(*msg);
+                        }
+                        // Process result at the end
+                        if (rv == 0)
+                            zmsg_addstr (reply, "OK");
+                        else {
+                            zmsg_addstr (reply, "ERROR");
+                            zmsg_addstr (reply, "Command failed");
+                        }
+                    }
+                    else {
+                        zmsg_addstr (reply, "ERROR");
+                        zmsg_addstr (reply, "Unsupported maintenance mode");
+                        zstr_free (&mode_str);
+                    }
+                    zstr_free (&mode_str);
+                }
+                else {
+                    zmsg_addstr (reply, "ERROR");
+                    zmsg_addstr (reply, "Missing maintenance mode");
+                }
+
+            }
+            else {
+                // command is not expected
+                log_warning ("'%s': invalid command", command);
+                zmsg_addstr (reply, "ERROR");
+                zmsg_addstr (reply, "Invalid command");
+            }
+        }
+        else {
+            // message_type is not expected
+            log_warning ("'%s': invalid message type", message_type);
+            zmsg_addstr (reply, "ERROR");
+            zmsg_addstr (reply, "Invalid message type");
+        }
+
+        if (self->verbose)
+            zmsg_print (reply);
+
+        mlm_client_sendto (self->client,
+                            sender,
+                            subject,
+                            NULL,
+                            5000,
+                            &reply);
+        if (reply) {
+            log_error ("Could not send message to %s", mlm_client_sender (self->client));
+            zmsg_destroy (&reply);
+        }
+
+        zstr_free (&subject);
+        zstr_free (&sender);
+        if (command)
+            zstr_free (&command);
+        zstr_free (&zuuid);
+        zstr_free (&message_type);
+        zmsg_destroy(msg);
+    }
+}
+
 // --------------------------------------------------------------------------
 // Create a new fty_outage_server
 void
@@ -497,6 +717,7 @@ fty_outage_server (zsock_t *pipe, void *args)
         // react on incoming messages
         else
         if (which == mlm_client_msgpipe (self->client)) {
+            log_trace ("which == mlm_client_msgpipe");
 
             zmsg_t *message = mlm_client_recv (self->client);
             if (!message)
@@ -513,6 +734,11 @@ fty_outage_server (zsock_t *pipe, void *args)
                         data_delete (self->assets, source);
                     }
                     zstr_free (&foo);
+                }
+                else if (streq (mlm_client_command (self->client), "MAILBOX DELIVER")) {
+                    // someone is addressing us directly
+                    log_debug("%s: MAILBOX DELIVER", __func__);
+                    fty_outage_handle_mailbox(self, &message);
                 }
                 zmsg_destroy(&message);
                 continue;
@@ -609,6 +835,25 @@ fty_outage_server_test (bool verbose)
     fty_shm_set_default_polling_interval(polling_value);
     assert(fty_shm_set_test_dir("src/selftest-rw") == 0);
 
+    zactor_t *self = zactor_new (fty_outage_server, (void*) "outage");
+    assert (self);
+
+    //    actor commands
+    zstr_sendx (self, "CONNECT", endpoint, "fty-outage", NULL);
+    zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "ASSETS", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
+    zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
+    zstr_sendx (self, "PRODUCER", "_ALERTS_SYS", NULL);
+    zstr_sendx (self, "TIMEOUT", "1000", NULL);
+    zstr_sendx (self, "ASSET-EXPIRY-SEC", "3", NULL);
+    zstr_sendx (server, "DEFAULT_MAINTENANCE_EXPIRATION", "30", NULL);
+    if (verbose)
+        zstr_sendx (self, "VERBOSE", NULL);
+
+    mlm_client_t *mb_client = mlm_client_new ();
+    mlm_client_connect (mb_client, endpoint, 1000, "fty_outage_client");
+
     mlm_client_t *a_sender = mlm_client_new();
     int rv = mlm_client_connect (a_sender, endpoint, 5000, "a_sender");
     assert (rv >= 0);
@@ -621,23 +866,11 @@ fty_outage_server_test (bool verbose)
     rv = mlm_client_set_consumer (consumer, "_ALERTS_SYS", ".*");
     assert (rv >= 0);
 
-    zactor_t *self = zactor_new (fty_outage_server, (void*) NULL);
-    assert (self);
-
-    //    actor commands
-    zstr_sendx (self, "CONNECT", endpoint, "outage-actor1", NULL);
-    zstr_sendx (self, "CONSUMER", "METRICS", ".*", NULL);
-    zstr_sendx (self, "CONSUMER", "ASSETS", ".*", NULL);
-    zstr_sendx (self, "CONSUMER", "_METRICS_SENSOR", ".*", NULL);
-    zstr_sendx (self, "CONSUMER", "_METRICS_UNAVAILABLE", ".*", NULL);
-    zstr_sendx (self, "PRODUCER", "_ALERTS_SYS", NULL);
-    zstr_sendx (self, "TIMEOUT", "1000", NULL);
-    zstr_sendx (self, "ASSET-EXPIRY-SEC", "3", NULL);
-
     //to give a time for all the clients and actors to initialize
     zclock_sleep (1000);
 
     // test case 01 to send the metric with short TTL
+    log_debug ("fty-outage: Test #1");
     zhash_t *asset_ext = zhash_new ();
     zhash_insert (asset_ext, "name", (void *) "ename_of_ups33");
     zhash_t *asset_aux = zhash_new ();
@@ -675,6 +908,7 @@ fty_outage_server_test (bool verbose)
     fty_proto_destroy (&bmsg);
 
     // test case 02 to resolve alert by sending an another metric
+    log_debug ("fty-outage: Test #2");
     // expected: RESOLVED alert to be sent
 //    sendmsg = fty_proto_encode_metric (
 //        NULL,
@@ -709,17 +943,18 @@ fty_outage_server_test (bool verbose)
     assert (rv >= 0);
 
     // test case 03: add new asset device, wait expiry time and check the alert
+    log_debug ("fty-outage: Test #3");
     zhash_t *aux = zhash_new ();
     zhash_insert (aux, FTY_PROTO_ASSET_TYPE, (void *) "device");
     zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, (void *) "ups");
     zhash_insert (aux, FTY_PROTO_ASSET_STATUS, (void *) "active");
     sendmsg = fty_proto_encode_asset (
         aux,
-        "UPS42",
+        "UPS-42",
         FTY_PROTO_ASSET_OP_CREATE,
         NULL);
     zhash_destroy (&aux);
-    rv = mlm_client_send (a_sender, "UPS42",  &sendmsg);
+    rv = mlm_client_send (a_sender, "UPS-42",  &sendmsg);
     assert (rv >= 0);
 
     msg = mlm_client_recv (consumer);
@@ -728,22 +963,81 @@ fty_outage_server_test (bool verbose)
     assert (bmsg);
     if (verbose)
         fty_proto_print (bmsg);
-    assert (streq (fty_proto_name (bmsg), "UPS42"));
+    assert (streq (fty_proto_name (bmsg), "UPS-42"));
     assert (streq (fty_proto_state (bmsg), "ACTIVE"));
     fty_proto_destroy (&bmsg);
 
-    // test case 04: RESOLVE alert when device is retired
+    // test case 04: switch the asset device to maintenance mode, and check that
+    // 1) alert switches to RESOLVED
+    // 2) after TTL, alert is back to active
+    // * REQUEST/'msg-correlation-id'/MAINTENANCE_MODE/<mode>/asset1/.../assetN/expiration - switch 'asset1' to 'assetN' into maintenance
+    log_debug ("fty-outage: Test #4");
+    zmsg_t *request = zmsg_new ();
+    zuuid_t *zuuid = zuuid_new ();
+    const char *zuuid_str = zuuid_str_canonical (zuuid);
+    zmsg_addstr (request, "REQUEST");
+    zmsg_addstr (request, zuuid_str);
+    zmsg_addstr (request, "MAINTENANCE_MODE");
+    zmsg_addstr (request, "enable");
+    zmsg_addstr (request, "UPS-42");
+    zmsg_addstr (request, "10");
+
+    rv = mlm_client_sendto (mb_client, "fty-outage", "TEST", NULL, 1000, &request);
+    assert (rv >= 0);
+
+    // check MB reply
+    zmsg_t *recv = mlm_client_recv (mb_client);
+    assert (recv);
+    char *answer = zmsg_popstr (recv);
+    assert (streq (zuuid_str, answer));
+    zstr_free(&answer);
+    answer = zmsg_popstr (recv);
+    assert (streq ("REPLY", answer));
+    zstr_free(&answer);
+    answer = zmsg_popstr (recv);
+    assert (streq ("OK", answer));
+    zstr_free(&answer);
+    zmsg_destroy (&recv);
+
+    // check ALERT: should be "RESOLVED" since the asset is in maintenance mode
+    msg = mlm_client_recv (consumer);
+    bmsg = fty_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        fty_proto_print (bmsg);
+    assert (streq (fty_proto_name (bmsg), "UPS-42"));
+    assert (streq (fty_proto_state (bmsg), "RESOLVED"));
+    fty_proto_destroy (&bmsg);
+
+    // wait a bit before checking for (2)
+    zclock_sleep (1000);
+
+    // check ALERT: should be "ACTIVE" again since the asset has been auto
+    // expelled from maintenance mode
+    msg = mlm_client_recv (consumer);
+    assert (msg);
+    bmsg = fty_proto_decode (&msg);
+    assert (bmsg);
+    if (verbose)
+        fty_proto_print (bmsg);
+    assert (streq (fty_proto_name (bmsg), "UPS-42"));
+    assert (streq (fty_proto_state (bmsg), "ACTIVE"));
+    fty_proto_destroy (&bmsg);
+    zuuid_destroy (&zuuid);
+
+    // test case 05: RESOLVE alert when device is retired
+    log_debug ("fty-outage: Test #5");
     aux = zhash_new ();
     zhash_insert (aux, FTY_PROTO_ASSET_TYPE, (void *) "device");
     zhash_insert (aux, FTY_PROTO_ASSET_SUBTYPE, (void *) "ups");
     zhash_insert (aux, FTY_PROTO_ASSET_STATUS, (void *) "retired");
     sendmsg = fty_proto_encode_asset (
         aux,
-        "UPS42",
+        "UPS-42",
         FTY_PROTO_ASSET_OP_UPDATE,
         NULL);
     zhash_destroy (&aux);
-    rv = mlm_client_send (a_sender, "UPS42",  &sendmsg);
+    rv = mlm_client_send (a_sender, "UPS-42",  &sendmsg);
     assert (rv >= 0);
 
     msg = mlm_client_recv (consumer);
@@ -752,7 +1046,7 @@ fty_outage_server_test (bool verbose)
     assert (bmsg);
     if (verbose)
         fty_proto_print (bmsg);
-    assert (streq (fty_proto_name (bmsg), "UPS42"));
+    assert (streq (fty_proto_name (bmsg), "UPS-42"));
     assert (streq (fty_proto_state (bmsg), "RESOLVED"));
     fty_proto_destroy (&bmsg);
     zactor_destroy(&self);
@@ -760,6 +1054,7 @@ fty_outage_server_test (bool verbose)
     fty_shm_delete_test_dir();
     mlm_client_destroy (&a_sender);
     mlm_client_destroy (&consumer);
+    mlm_client_destroy (&mb_client);
     zactor_destroy (&server);
 
     //  @end
