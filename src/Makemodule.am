@@ -18,7 +18,7 @@ src_libfty_outage_la_SOURCES = \
 
 if ENABLE_DRAFTS
 src_libfty_outage_la_SOURCES += \
-    src/fty_outage_server.cc
+    src/fty-outage-server.cc
 
 endif
 
@@ -56,7 +56,7 @@ if ENABLE_FTY_OUTAGE
 bin_PROGRAMS += src/fty-outage
 src_fty_outage_CPPFLAGS = ${AM_CPPFLAGS}
 src_fty_outage_LDADD = ${program_libs}
-src_fty_outage_SOURCES = src/fty_outage.cc
+src_fty_outage_SOURCES = src/fty-outage.cc
 src_fty_outage_config_DATA =
 src_fty_outage_config_DATA += src/fty-outage.cfg
 src_fty_outage_configdir = $(sysconfdir)/fty-outage
@@ -215,6 +215,16 @@ else
 coverage: src/fty_outage_selftest
 	@echo "call make clean && configure --with-gcov to enable code coverage"
 	@exit 1
+endif
+
+bindings: python-bindings
+
+python-bindings:
+if ENABLE_BINDINGS_PYTHON
+	-( cd bindings/python && python setup.py install )
+else
+	@echo "Python Bindings not enabled or missing setup.py... skipping"
+
 endif
 
 # A series of tests that the codebase and recipes are pretty, easy

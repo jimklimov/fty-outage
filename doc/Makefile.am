@@ -65,16 +65,16 @@ GENERATED_DOCS =
 	@true
 
 GENERATED_DOCS += fty_outage_server.txt fty_outage_server.doc
-fty_outage_server.txt: $(top_srcdir)/src/fty_outage_server.cc
-	"$(srcdir)/mkman" "fty_outage_server" "$(builddir)/fty_outage_server.txt" "$(srcdir)/.."
+fty_outage_server.txt: $(top_srcdir)/src/fty-outage-server.cc
+	"$(srcdir)/mkman" "fty-outage-server" "$(builddir)/fty_outage_server.txt" "$(srcdir)/.."
 
 ### Note: for mains, we keep the source name rather than flattened name:c
 ### so that the manpages for binary programs match their name, at expense
 ### of perhaps being built in a subdirectory under doc/.
 GENERATED_DOCS += fty-outage.txt fty-outage.doc
-fty-outage.txt: $(top_srcdir)/src/fty_outage.cc
+fty-outage.txt: $(top_srcdir)/src/fty-outage.cc
 	mkdir -p "$(builddir)/$(@D)"
-	"$(srcdir)/mkman" "fty_outage" "$(builddir)/fty-outage.txt" "$(srcdir)/.."
+	"$(srcdir)/mkman" "fty-outage" "$(builddir)/fty-outage.txt" "$(srcdir)/.."
 
 
 clean-local:

@@ -30,15 +30,15 @@
 #include "platform.h"
 
 //  External API
-#include "../include/fty_outage.h"
-
-//  Extra headers
+#include "../include/fty-outage.h"
 
 //  Opaque class structures to allow forward references
 #ifndef DATA_T_DEFINED
 typedef struct _data_t data_t;
 #define DATA_T_DEFINED
 #endif
+
+//  Extra headers
 
 //  Internal API
 
