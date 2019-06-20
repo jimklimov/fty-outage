@@ -19,7 +19,7 @@ and public classes in a shared library:
 
 Generally you can compile and link against it like this:
 ----
-#include <fty_outage.h>
+#include <fty-outage.h>
 
 cc ['flags'] 'files' -lfty_outage ['libraries']
 ----

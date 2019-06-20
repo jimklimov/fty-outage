@@ -13,6 +13,8 @@
     <target name = "travis" >
         <!-- option name = "clangformat_implem" value = "autotools" / -->
         <option name = "use_cmake" value = "0" />
+        <option name = "dist" value = "trusty" />
+        <option name = "shadow_gcc" value = "2" />
         <!-- option name = "clangformat_require_good" value = "1" / -->
         <option name = "clangformat_allow_failures" value = "1" />
         <option name = "use_pkg_deps_prereqs_source" value = "0" />
@@ -35,6 +37,10 @@
     <include filename = "license.xml" />
     <version major = "1" minor = "0" patch = "0" />
     <abi current = "1" revision = "0" age = "0" />
+
+    <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
+		source-extension = "cc" header-extension = "h"
+        pretty-print = "no" keep-tree = "true" />
 
     <!-- TODO: Use "fty-common-mlm" and hide ZMQ in there? -->
     <use project = "czmq"
@@ -135,8 +141,13 @@
         </use>
     </use>
 
-    <use project = "fty_shm" libname = "libfty_shm" header="fty_shm.h" min_major = "1" test = "fty_shm_test" 
-        repository = "https://github.com/42ity/fty-shm.git"/>
+    <use project = "fty_shm" 
+		libname = "libfty_shm"
+		header="fty_shm.h" min_major = "1"
+		test = "fty_shm_test" 
+		repository = "https://github.com/42ity/fty-shm.git"
+		release = "master"
+		/>
 
     <class name = "fty-outage-server">Bios outage server</class>
     <class name = "data" private = "1"> Data </class>

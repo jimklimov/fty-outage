@@ -22,7 +22,7 @@
 #ifndef DATA_H_INCLUDED
 #define DATA_H_INCLUDED
 
-#include "../include/fty_outage.h"
+#include "../include/fty-outage.h"
 
 // it is used as TTL, but in formula we are waiting for ttl*2 ->
 // so if we here would have 15 minutes-> the first alert will come in 30 minutes

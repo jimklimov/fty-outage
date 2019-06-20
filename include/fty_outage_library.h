@@ -90,7 +90,7 @@ typedef struct _fty_outage_server_t fty_outage_server_t;
 
 //  Public classes, each with its own header file
 #ifdef FTY_OUTAGE_BUILD_DRAFT_API
-#include "fty_outage_server.h"
+#include "fty-outage-server.h"
 #endif // FTY_OUTAGE_BUILD_DRAFT_API
 
 #ifdef FTY_OUTAGE_BUILD_DRAFT_API
