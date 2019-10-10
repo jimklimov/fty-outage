@@ -5,6 +5,7 @@
     email = "EatonIPCOpenSource@eaton.com"
     url = "https://42ity.org"
     license = "GPL-2.0+"
+    check_license_years = "1"
     repository = "https://github.com/42ity/fty-outage"
     >
 
