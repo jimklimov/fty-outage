@@ -2,9 +2,9 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: fty-outage
 
 Files: *
-Copyright: 2015- fty-outage Developers <eatonipcopensource@eaton.com>
+Copyright: 2016- fty-outage Developers <eatonipcopensource@eaton.com>
 License: fty-outage_license
- Copyright (C) 2014 - 2018 Eaton
+ Copyright (C) 2014 - 2019 Eaton
  .
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
