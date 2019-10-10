@@ -1,21 +1,21 @@
 /*
     fty_agent_outage - Agent outage
 
-    Copyright (C) 2014 - 2017 Eaton                                        
-                                                                           
-    This program is free software; you can redistribute it and/or modify   
-    it under the terms of the GNU General Public License as published by   
-    the Free Software Foundation; either version 2 of the License, or      
-    (at your option) any later version.                                    
-                                                                           
-    This program is distributed in the hope that it will be useful,        
-    but WITHOUT ANY WARRANTY; without even the implied warranty of         
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
-    GNU General Public License for more details.                           
-                                                                           
+    Copyright (C) 2014 - 2017 Eaton
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
     =========================================================================
 */
 
@@ -53,7 +53,7 @@ int main (int argc, char *argv [])
             printf ("Unknown option: %s\n", argv [argn]);
         }
     }
-    
+
     zconfig_t *cfg = zconfig_load(CONFIG);
     log_debug("Config is %s null",cfg ? "not": "");
     if (cfg) {
@@ -68,7 +68,7 @@ int main (int argc, char *argv [])
       log_debug("Try to load log configuration file : %s", logConfigFile);
       ftylog_setConfigFile(ftylog_getInstance(), logConfigFile);
     }
-    
+
     if (verbose)
     {
         ftylog_setVeboseMode(ftylog_getInstance());
@@ -77,7 +77,7 @@ int main (int argc, char *argv [])
     // FIXME: use agent name from fty-common
     zactor_t *server = zactor_new (fty_outage_server, (void *) "outage");
     //  Insert main code here
-    
+
     zstr_sendx (server, "STATE-FILE", "/var/lib/fty/fty-outage/state.zpl", NULL);
     zstr_sendx (server, "TIMEOUT", "30000", NULL);
     zstr_sendx (server, "CONNECT", "ipc://@/malamute", "fty-outage", NULL);
