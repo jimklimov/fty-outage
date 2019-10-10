@@ -1,7 +1,7 @@
 /*
     fty-outage - Agent that sends alerts when device does not communicate
 
-    Copyright (C) 2014 - 2018 Eaton
+    Copyright (C) 2014 - 2019 Eaton
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

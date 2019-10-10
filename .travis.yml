@@ -64,6 +64,7 @@ pkg_deps_prereqs_source: &pkg_deps_prereqs_source
     - libmlm-dev
     - log4cplus-dev
     - libfty-common-logging-dev
+    - cxxtools-dev
     - libfty-common-dev
     - libfty-proto-dev
     - libfty-shm-dev
