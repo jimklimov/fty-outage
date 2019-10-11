@@ -1,3 +1,7 @@
+<!-- For "starting_year" we note the first commit of the repository.
+     For "copyright" this is usually the life timespan of the project
+     since a lot of the code and/or design ideas migrate around.
+// -->
 <starting_year>2016</starting_year>
 <license>
 Copyright (C) 2014 - 2019 Eaton
