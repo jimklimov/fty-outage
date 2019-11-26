@@ -62,6 +62,13 @@
     <use project = "malamute" min_major = "1" test = "mlm_server_test"
         repository = "https://github.com/42ity/malamute.git" />
 
+    <!-- Note: cxxtools facilities are directly used in this codebase -->
+    <use project = "cxxtools"
+        test = "cxxtools::Utf8Codec::Utf8Codec"
+        header = "cxxtools/allocator.h"
+        repository = "https://github.com/42ity/cxxtools.git"
+        />
+
     <!-- Note: pure C projects should use fty-log/fty_logger.h, C++ use fty_log.h -->
     <use project = "fty-common-logging" libname = "libfty_common_logging"
         header = "fty_log.h"
