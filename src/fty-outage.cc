@@ -34,27 +34,36 @@ int main (int argc, char *argv [])
 {
     const char * logConfigFile = "";
     const char * maintenance_expiration = "";
+    const char * config_file = CONFIG;
     ftylog_setInstance("fty-outage","");
     bool verbose = false;
     int argn;
+    // Parse command line
     for (argn = 1; argn < argc; argn++) {
+        char *param = NULL;
+        if (argn < argc - 1) param = argv [argn+1];
+
         if (streq (argv [argn], "--help")
         ||  streq (argv [argn], "-h")) {
             puts ("fty-outage [options] ...");
             puts ("  --verbose / -v         verbose test output");
             puts ("  --help / -h            this information");
+            puts ("  -c|--config         path to config file");
             return 0;
         }
-        else
-        if (streq (argv [argn], "--verbose")
-        ||  streq (argv [argn], "-v"))
-            verbose = true;
+            else if (streq (argv [argn], "--verbose") || streq (argv [argn], "-v")) {
+                verbose = true;
+            }
+            else if (streq (argv [argn], "--config") || streq (argv [argn], "-c")) {
+                if (param) config_file = param;
+                ++argn;
+        }
         else {
             printf ("Unknown option: %s\n", argv [argn]);
         }
     }
 
-    zconfig_t *cfg = zconfig_load(CONFIG);
+    zconfig_t *cfg = zconfig_load(config_file);
     log_debug("Config is %s null",cfg ? "not": "");
     if (cfg) {
         logConfigFile = zconfig_get(cfg, "log/config", "");
@@ -62,6 +71,7 @@ int main (int argc, char *argv [])
         // Get maintenance mode TTL
         maintenance_expiration = zconfig_get(cfg, "server/maintenance_expiration", DEFAULT_MAINTENANCE_EXPIRATION);
     }
+
     //If a log config file is configured, try to load it
     if (!streq(logConfigFile, ""))
     {

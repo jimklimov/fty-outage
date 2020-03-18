@@ -17,7 +17,7 @@ EnvironmentFile=-@sysconfdir@/default/bios__%n.conf
 EnvironmentFile=-@sysconfdir@/default/fty
 EnvironmentFile=-@sysconfdir@/default/fty__%n.conf
 Environment="prefix=@prefix@"
-ExecStart=@prefix@/bin/fty-outage @sysconfdir@/@PACKAGE@/fty-outage.cfg
+ExecStart=@prefix@/bin/fty-outage -c @sysconfdir@/@PACKAGE@/fty-outage.cfg
 
 [Install]
 WantedBy=bios.target
