@@ -48,13 +48,15 @@ int main (int argc, char *argv [])
             puts ("fty-outage [options] ...");
             puts ("  --verbose / -v         verbose test output");
             puts ("  --help / -h            this information");
-            puts ("  -c|--config         path to config file");
+            puts ("  -c|--config            path to config file");
             return 0;
         }
-            else if (streq (argv [argn], "--verbose") || streq (argv [argn], "-v")) {
-                verbose = true;
-            }
-            else if (streq (argv [argn], "--config") || streq (argv [argn], "-c")) {
+        else
+        if (streq (argv [argn], "--verbose") || streq (argv [argn], "-v")) {
+            verbose = true;
+        }
+        else
+        if (streq (argv [argn], "--config") || streq (argv [argn], "-c")) {
                 if (param) config_file = param;
                 ++argn;
         }
