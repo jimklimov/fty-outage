@@ -115,5 +115,6 @@ int main (int argc, char *argv [])
         }
     }
     zactor_destroy (&server);
+    zconfig_destroy(&cfg);
     return 0;
 }
