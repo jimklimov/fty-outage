@@ -208,8 +208,11 @@ s_osrv_activate_alert (s_osrv_t* self, const char* source_asset)
         s_osrv_send_alert (self, source_asset, "ACTIVE");
         zhash_insert (self->active_alerts, source_asset, TRUE);
     }
-    else
-        log_debug ("\t\talert already active for source=%s", source_asset);
+    else {
+        /// XXX: Send the alert nevertheless, unexplained behavior change from last release.
+        log_debug ("\t\talert already active for source=%s (sending alert anyway)", source_asset);
+        s_osrv_send_alert (self, source_asset, "ACTIVE");
+    }
 }
 
 static int
